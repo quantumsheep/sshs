@@ -32,7 +32,7 @@ jobs:
 
       - id: extension
         run: |
-          if [[ "${{ matrix.os }}" == "windows" ]]; then
+          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
             echo "::set-output name=EXTENSION::.exe"
           else
             echo "::set-output name=EXTENSION::"
@@ -40,10 +40,10 @@ jobs:
 
       - run: go build -o bin/sshs .
         env:
-          GOOS: "${{ matrix.os }}"
-          GOARCH: "${{ matrix.arch }}"
+          GOOS: "${{ matrix.target.os }}"
+          GOARCH: "${{ matrix.target.arch }}"
 
       - uses: actions/upload-artifact@v2
         with:
-          name: sshs-${{ github.event.release.tag_name }}-${{ matrix.os }}-${{ matrix.arch }}${{ steps.extension.outputs.EXTENSION }}
+          name: sshs-${{ github.event.release.tag_name }}-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ steps.extension.outputs.EXTENSION }}
           path: bin/sshs
