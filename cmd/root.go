@@ -176,7 +176,7 @@ var RootCmd = &cobra.Command{
 					searchLowerCase := strings.ToLower(search)
 
 					for _, row := range rows {
-						if strings.Contains(strings.ToLower(row[0]), searchLowerCase) {
+						if strings.Contains(strings.ToLower(row[0]), searchLowerCase) || strings.Contains(strings.ToLower(row[2]), searchLowerCase) {
 							table.Rows = append(table.Rows, row)
 						}
 					}
