@@ -38,12 +38,12 @@ jobs:
             echo "::set-output name=EXTENSION::"
           fi
 
-      - run: go build -o bin/sshs .
+      - run: go build -o bin/sshs${{ steps.extension.outputs.EXTENSION }} .
         env:
           GOOS: "${{ matrix.target.os }}"
           GOARCH: "${{ matrix.target.arch }}"
 
       - uses: actions/upload-artifact@v2
         with:
-          name: sshs-${{ github.event.release.tag_name }}-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ steps.extension.outputs.EXTENSION }}
-          path: bin/sshs
+          name: sshs-${{ github.event.release.tag_name }}-${{ matrix.target.os }}-${{ matrix.target.arch }}
+          path: bin/sshs${{ steps.extension.outputs.EXTENSION }}
