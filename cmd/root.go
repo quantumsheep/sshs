@@ -148,6 +148,20 @@ var RootCmd = &cobra.Command{
 				ui.Close()
 				connect(table.Rows[selectedHost+1][0])
 				return
+			case "<Resize>":
+				termWidth, termHeight := ui.TerminalDimensions()
+				grid.SetRect(0, 0, termWidth, termHeight)
+
+				searchBarRatio := 3 / float64(termHeight)
+
+				grid.Set(
+					ui.NewCol(1.0,
+						ui.NewRow(searchBarRatio, searchBar),
+						ui.NewRow(1.0-searchBarRatio, table),
+					),
+				)
+
+				ui.Clear()
 			case "<Down>":
 				newSelectedHost += 1
 			case "<Up>":
