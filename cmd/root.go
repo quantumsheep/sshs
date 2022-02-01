@@ -146,7 +146,7 @@ var RootCmd = &cobra.Command{
 				return
 			case "<Enter>":
 				ui.Close()
-				connect(rows[selectedHost][0])
+				connect(table.Rows[selectedHost+1][0])
 				return
 			case "<Down>":
 				newSelectedHost += 1
