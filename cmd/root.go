@@ -190,12 +190,18 @@ var RootCmd = &cobra.Command{
 
 			previousSearch = search
 
-			newSelectedHost %= len(rows)
+			maxHosts := len(table.Rows) - 1
+
+			if maxHosts > 0 {
+				newSelectedHost %= maxHosts
+			} else {
+				newSelectedHost = 0
+			}
 
 			if newSelectedHost < 0 {
-				newSelectedHost = newSelectedHost + len(rows)
+				newSelectedHost = newSelectedHost + maxHosts
 			} else if newSelectedHost >= len(rows) {
-				newSelectedHost = newSelectedHost - len(rows)
+				newSelectedHost = newSelectedHost - maxHosts
 			}
 
 			if previousKey == "g" {
