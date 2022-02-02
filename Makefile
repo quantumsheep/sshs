@@ -1,5 +1,5 @@
 LEVEL ?= release
-OUTPUT ?= bin/sshs
+OUTPUT ?= sshs
 
 GO_PACKAGE_PATH := github.com/quantumsheep/sshs
 VERSION := $$(git describe --tags 2>/dev/null || true)
