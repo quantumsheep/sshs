@@ -38,7 +38,7 @@ jobs:
         run: echo "FILENAME=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
 
       - name: Build
-        run: go build -ldflags "-s -w -X main.Version=${{ github.event.release.tag_name }} -X main.Build=$(git rev-parse --short "$GITHUB_SHA")" -o bin/${{ env.FILENAME }} .
+        run: make OUTPUT=bin/${{ env.FILENAME }}
         env:
           GOOS: "${{ matrix.target.os }}"
           GOARCH: "${{ matrix.target.arch }}"
