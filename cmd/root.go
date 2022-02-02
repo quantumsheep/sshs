@@ -32,11 +32,13 @@ func connect(name string) {
 	os.Exit(0)
 }
 
-var RootCmd = &cobra.Command{
-	Use:   "sshs",
-	Short: "ssh clients manager",
+var Version string = "latest, build dev"
+
+var rootCmd = &cobra.Command{
+	Use:     "sshs",
+	Short:   "ssh clients manager",
+	Version: Version,
 	Run: func(cmd *cobra.Command, args []string) {
-		// read ~/.ssh/config
 		filepath, e := homedir.Expand("~/.ssh/config")
 		if e != nil {
 			log.Fatal(e)
@@ -57,7 +59,6 @@ var RootCmd = &cobra.Command{
 		searchBar.Text = "Search..."
 		searchBar.PaddingLeft = 1
 		searchBar.PaddingRight = 1
-		// searchBar.BorderStyle.Fg = ui.ColorM
 		searchBar.TextStyle.Fg = ui.ColorYellow
 
 		table := widgets.NewTable()
@@ -236,14 +237,14 @@ var RootCmd = &cobra.Command{
 }
 
 func Execute() {
-	if err := RootCmd.Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
 func init() {
-	flags := RootCmd.PersistentFlags()
+	flags := rootCmd.PersistentFlags()
 	flags.StringP("search", "s", "", "Host search filter")
 
 	viper.SetDefault("author", "quantumsheep <nathanael.dmc@outlook.fr>")
