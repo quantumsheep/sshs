@@ -30,18 +30,30 @@ jobs:
         with:
           go-version: "~1.17.5"
 
-      - run: echo "EXTENSION=.exe" >> $GITHUB_ENV
+      - name: Set .exe extension for Windows
+        run: echo "EXTENSION=.exe" >> $GITHUB_ENV
         if: matrix.target.os == 'windows'
 
-      - run: echo "FILENAME=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
+      - name: Set executable filename
+        run: echo "FILENAME=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
 
-      - run: go build -o bin/${{ env.FILENAME }} .
+      - name: Build
+        run: go build -o bin/${{ env.FILENAME }} .
         env:
           GOOS: "${{ matrix.target.os }}"
           GOARCH: "${{ matrix.target.arch }}"
+
+      - name: Compute checksums
+        run: shasum --algorithm 256 bin/${{ env.FILENAME }} > bin/${{ env.FILENAME }}.sha256
 
       - uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: bin/${{ env.FILENAME }}
+          tag: ${{ github.ref }}
+
+      - uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: bin/${{ env.FILENAME }}.sha256
           tag: ${{ github.ref }}
