@@ -30,20 +30,18 @@ jobs:
         with:
           go-version: "~1.17.5"
 
-      - id: extension
-        run: |
-          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
-            echo "::set-output name=EXTENSION::.exe"
-          else
-            echo "::set-output name=EXTENSION::"
-          fi
+      - run: echo "EXTENSION=.exe" >> $GITHUB_ENV
+        if: matrix.target.os == 'windows'
 
-      - run: go build -o bin/sshs${{ steps.extension.outputs.EXTENSION }} .
+      - run: echo "FILENAME=sshs-${{ github.event.release.tag_name }}-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
+
+      - run: go build -o bin/${{ env.FILENAME }} .
         env:
           GOOS: "${{ matrix.target.os }}"
           GOARCH: "${{ matrix.target.arch }}"
 
-      - uses: actions/upload-artifact@v2
+      - uses: svenstaro/upload-release-action@v2
         with:
-          name: sshs-${{ github.event.release.tag_name }}-${{ matrix.target.os }}-${{ matrix.target.arch }}
-          path: bin/sshs${{ steps.extension.outputs.EXTENSION }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: bin/${{ env.FILENAME }}
+          tag: ${{ github.ref }}
