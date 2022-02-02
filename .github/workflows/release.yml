@@ -33,7 +33,7 @@ jobs:
       - run: echo "EXTENSION=.exe" >> $GITHUB_ENV
         if: matrix.target.os == 'windows'
 
-      - run: echo "FILENAME=sshs-${{ github.event.release.tag_name }}-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
+      - run: echo "FILENAME=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
 
       - run: go build -o bin/${{ env.FILENAME }} .
         env:
