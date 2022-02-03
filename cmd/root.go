@@ -34,13 +34,12 @@ func connect(name string) {
 
 var (
 	Version string
-	Build   string
 )
 
 var rootCmd = &cobra.Command{
 	Use:     "sshs",
 	Short:   "ssh clients manager",
-	Version: fmt.Sprintf("%s, build %s", Version, Build),
+	Version: Version,
 	Run: func(cmd *cobra.Command, args []string) {
 		filepath, e := homedir.Expand("~/.ssh/config")
 		if e != nil {
