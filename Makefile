@@ -1,4 +1,4 @@
-VERSION ?= $$(git describe --tags 2>/dev/null || git rev-parse --short HEAD)
+VERSION ?= $$(git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "latest")
 LEVEL ?= release
 OUTPUT ?= sshs
 
