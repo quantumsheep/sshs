@@ -8,6 +8,9 @@ It uses `~/.ssh/config` to list and connect to hosts.
 You need to have `ssh` installed and accessible from your terminal.
 
 # How to install
+## From releases
+Releases contains prebuilt binaries for Linux, macOS and Windows. You can download them at https://github.com/quantumsheep/sshs/releases.
+
 ## From source
 ```bash
 git clone https://github.com/quantumsheep/sshs.git
