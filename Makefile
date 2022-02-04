@@ -14,6 +14,15 @@ build:
 clean:
 	rm -f sshs
 
+PREFIX ?= /usr/local
+
+install: sshs
+	mkdir -p $(DESTDIR)$(PREFIX)/bin
+	cp $< $(DESTDIR)$(PREFIX)/bin/sshs
+
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/sshs
+
 default: build
 
-.PHONY: clean
+.PHONY: clean install uninstall
