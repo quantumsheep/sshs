@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mikkeloscar/sshconfig"
 	"github.com/mitchellh/go-homedir"
+	"github.com/quantumsheep/sshconfig"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
