@@ -169,7 +169,7 @@ var rootCmd = &cobra.Command{
 				newSelectedHost += 1
 			case "<Up>":
 				newSelectedHost -= 1
-			case "<Backspace>":
+			case "<Backspace>", "<C-<Backspace>>":
 				if len(search) > 0 {
 					search = search[:len(search)-1]
 				}
