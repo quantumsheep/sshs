@@ -14,10 +14,15 @@ Thanks to [Jakub Levý](https://github.com/jakublevy/chocopkgs/tree/master/sshs)
 choco install sshs
 ```
 
+## Arch Linux
+### Pacman
+[Vote for the package to be added to the official repository](https://aur.archlinux.org/packages/sshs).  
+In the meantime I suggest [building the project from sources](#from-sources).
+
 ## From releases
 Releases contains prebuilt binaries for Linux, macOS and Windows. You can download them at https://github.com/quantumsheep/sshs/releases.
 
-## From source
+## From sources
 ```bash
 git clone https://github.com/quantumsheep/sshs.git
 cd sshs
