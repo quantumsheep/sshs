@@ -17,7 +17,13 @@ choco install sshs
 ## Arch Linux
 ### Pacman
 [Vote for the package to be added to the official repository](https://aur.archlinux.org/packages/sshs).  
-In the meantime I suggest [building the project from sources](#from-sources).
+In the meantime you can manually install it by cloning the repository and running `makepkg`:
+```shell
+pacman -S --needed git base-devel
+git clone https://aur.archlinux.org/sshs.git
+cd sshs
+makepkg -si
+```
 
 ## From releases
 Releases contains prebuilt binaries for Linux, macOS and Windows. You can download them at https://github.com/quantumsheep/sshs/releases.
