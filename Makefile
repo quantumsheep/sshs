@@ -1,6 +1,6 @@
 VERSION ?= $$(git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "latest")
 LEVEL ?= release
-OUTPUT ?= sshs
+OUTPUT ?= sshs$$(if [ "$${GOOS:-$$(go env GOOS)}" == "windows" ]; then echo '.exe'; else echo ''; fi)
 
 GO_PACKAGE_PATH := github.com/quantumsheep/sshs
 
