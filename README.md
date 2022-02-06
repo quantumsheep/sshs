@@ -8,6 +8,12 @@ It uses `~/.ssh/config` to list and connect to hosts.
 You need to have `ssh` installed and accessible from your terminal.
 
 # How to install
+## Chocolatey
+Thanks to [Jakub Levý](https://github.com/jakublevy/chocopkgs/tree/master/sshs) for maintaining this package on Chocolatey.
+```shell
+choco install sshs
+```
+
 ## From releases
 Releases contains prebuilt binaries for Linux, macOS and Windows. You can download them at https://github.com/quantumsheep/sshs/releases.
 
