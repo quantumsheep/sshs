@@ -40,3 +40,32 @@ cd sshs
 make
 make install
 ```
+
+# Troubleshooting
+## [...]/.ssh/config: no such file or directory
+- Check if you have `~/.ssh/config` file
+- If you don't, create it with `touch ~/.ssh/config`
+
+If you want to use another SSH config file, you can use the `--config` option.
+
+Here's a sample `~/.ssh/config` file:
+```nginx
+Host *
+  AddKeysToAgent yes
+  UseKeychain yes
+  IdentityFile ~/.ssh/id_rsa
+
+Host "My server"
+  HostName server1.example.com
+  User root
+  Port 22
+
+Host "Go through Proxy"
+  HostName server2.example.com
+  User someone
+  Port 22
+  ProxyCommand ssh -W %h:%p proxy.example.com
+```
+
+You can check the [OpenBSD `ssh_config` reference](https://man.openbsd.org/ssh_config.5) for more information on how to setup `~/.ssh/config`.
+
