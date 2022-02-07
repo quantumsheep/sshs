@@ -169,14 +169,13 @@ func run(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if s, e := flags.GetString("search"); e == nil {
+	if s, e := flags.GetString("search"); e == nil && s != "" {
 		search = s
 		filterRows(search)
 	}
 
 	ui.Render(grid)
 
-	previousKey := ""
 	uiEvents := ui.PollEvents()
 	for {
 		newSelectedHost := selectedHost
@@ -223,9 +222,8 @@ func run(cmd *cobra.Command, args []string) {
 
 		if previousSearch != search {
 			filterRows(search)
+			previousSearch = search
 		}
-
-		previousSearch = search
 
 		maxHosts := len(table.Rows) - 1
 
@@ -239,12 +237,6 @@ func run(cmd *cobra.Command, args []string) {
 			newSelectedHost = newSelectedHost + maxHosts
 		} else if newSelectedHost >= len(rows) {
 			newSelectedHost = newSelectedHost - maxHosts
-		}
-
-		if previousKey == "g" {
-			previousKey = ""
-		} else {
-			previousKey = e.ID
 		}
 
 		if newSelectedHost != selectedHost {
