@@ -46,7 +46,13 @@ var rootCmd = &cobra.Command{
 func run(cmd *cobra.Command, args []string) {
 	flags := cmd.Flags()
 
-	filepath, e := homedir.Expand("~/.ssh/config")
+	sshConfigPath := "~/.ssh/config"
+
+	if str, e := flags.GetString("config"); e == nil && str != "" {
+		sshConfigPath = str
+	}
+
+	filepath, e := homedir.Expand(sshConfigPath)
 	if e != nil {
 		log.Fatal(e)
 	}
@@ -261,6 +267,7 @@ func Execute() {
 func init() {
 	flags := rootCmd.PersistentFlags()
 	flags.StringP("search", "s", "", "Host search filter")
+	flags.StringP("config", "c", "~/.ssh/config", "SSH config file")
 
 	viper.SetDefault("author", "quantumsheep <nathanael.dmc@outlook.fr>")
 	viper.SetDefault("license", "MIT")
