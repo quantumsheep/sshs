@@ -81,11 +81,25 @@ func run(cmd *cobra.Command, args []string) {
 	table.RowStyles[0] = ui.NewStyle(ui.ColorBlue, ui.ColorClear, ui.ModifierBold)
 
 	table.Rows = make([][]string, 1)
-	table.Rows[0] = []string{"Hostname", "User", "Host", "Port"}
+	table.Rows[0] = []string{"Hostname", "User", "Target", "Port"}
+
+	displayFullProxy := false
+	if proxyFlag, e := flags.GetBool("proxy"); e == nil {
+		displayFullProxy = proxyFlag
+	}
 
 	for _, host := range hosts {
-		if host.HostName == "" {
-			continue
+		target := host.HostName
+		if target == "" {
+			if host.ProxyCommand == "" {
+				continue
+			}
+
+			if displayFullProxy {
+				target = host.ProxyCommand
+			} else {
+				target = "(Proxy)"
+			}
 		}
 
 		name := strings.Join(host.Host, " ")
@@ -94,7 +108,7 @@ func run(cmd *cobra.Command, args []string) {
 			name = name[1 : len(name)-1]
 		}
 
-		row := []string{name, host.User, host.HostName, strconv.Itoa(host.Port)}
+		row := []string{name, host.User, target, strconv.Itoa(host.Port)}
 		table.Rows = append(table.Rows, row)
 	}
 
@@ -260,6 +274,7 @@ func init() {
 	flags := rootCmd.PersistentFlags()
 	flags.StringP("search", "s", "", "Host search filter")
 	flags.StringP("config", "c", "~/.ssh/config", "SSH config file")
+	flags.BoolP("proxy", "p", false, "Display full ProxyCommand")
 
 	viper.SetDefault("author", "quantumsheep <nathanael.dmc@outlook.fr>")
 	viper.SetDefault("license", "MIT")
