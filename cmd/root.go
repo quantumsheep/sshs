@@ -18,8 +18,8 @@ import (
 	tb "github.com/nsf/termbox-go"
 )
 
-func connect(name string) {
-	cmd := exec.Command("ssh", strings.TrimSpace(name))
+func connect(name string, configPath string) {
+	cmd := exec.Command("ssh", "-F", configPath, strings.TrimSpace(name))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -52,12 +52,12 @@ func run(cmd *cobra.Command, args []string) {
 		sshConfigPath = str
 	}
 
-	filepath, e := homedir.Expand(sshConfigPath)
+	sshConfigPath, e := homedir.Expand(sshConfigPath)
 	if e != nil {
 		log.Fatal(e)
 	}
 
-	hosts, e := sshconfig.ParseSSHConfig(filepath)
+	hosts, e := sshconfig.ParseSSHConfig(sshConfigPath)
 	if e != nil {
 		log.Fatal(e)
 	}
@@ -200,7 +200,7 @@ func run(cmd *cobra.Command, args []string) {
 			return
 		case "<Enter>":
 			ui.Close()
-			connect(table.Rows[selectedHost+1][0])
+			connect(table.Rows[selectedHost+1][0], sshConfigPath)
 			return
 		case "<Resize>":
 			termWidth, termHeight := ui.TerminalDimensions()
