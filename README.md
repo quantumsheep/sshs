@@ -25,6 +25,11 @@ cd sshs
 makepkg -si
 ```
 
+### Yay
+```shell
+yay -Syua --needed --noconfirm sshs
+```
+
 ## From releases
 Releases contains prebuilt binaries for Linux, macOS and Windows. You can download them at https://github.com/quantumsheep/sshs/releases.
 
