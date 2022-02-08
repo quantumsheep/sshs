@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	valid "github.com/asaskevich/govalidator"
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
 	tb "github.com/nsf/termbox-go"
@@ -89,23 +90,26 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	for _, host := range hosts {
-		target := host.HostName
-		if target == "" {
-			if host.ProxyCommand == "" {
-				continue
-			}
-
-			if displayFullProxy {
-				target = host.ProxyCommand
-			} else {
-				target = "(Proxy)"
-			}
-		}
-
 		name := strings.Join(host.Host, " ")
 
 		if name[0] == '"' && name[len(name)-1] == '"' {
 			name = name[1 : len(name)-1]
+		}
+
+		target := host.HostName
+		if target == "" {
+			if host.ProxyCommand != "" {
+				if displayFullProxy {
+					target = host.ProxyCommand
+				} else {
+					target = "(Proxy)"
+				}
+			} else if valid.IsIP(name) || valid.IsDNSName(name) {
+				host.HostName = name
+				target = name
+			} else {
+				continue
+			}
 		}
 
 		row := []string{name, host.User, target, strconv.Itoa(host.Port)}
