@@ -112,8 +112,8 @@ func NewKnownHostConfig() *KnownHostConfig {
 
 func (c *KnownHostConfig) String() string {
 	return "Host " + c.Host +
-		"\n\tHostname " + c.HostName +
-		"\n\tPort " + c.Port
+		"\n  Hostname " + c.HostName +
+		"\n  Port " + c.Port
 }
 
 func KnownHostConfigStrings(configs []*KnownHostConfig) []string {
