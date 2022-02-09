@@ -8,6 +8,11 @@ It uses `~/.ssh/config` to list and connect to hosts.
 You need to have `ssh` installed and accessible from your terminal.
 
 # How to install
+## Homebrew
+```shell
+brew install sshs
+```
+
 ## Chocolatey
 Thanks to [Jakub Levý](https://github.com/jakublevy/chocopkgs/tree/master/sshs) for maintaining this package on Chocolatey.
 ```shell
