@@ -23,7 +23,7 @@ jobs:
           - os: windows
             arch: "amd64"
 
-    name: Build and publish package
+    name: Build and save artifact
     steps:
       - uses: actions/checkout@v2
 
