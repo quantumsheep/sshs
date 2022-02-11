@@ -1,0 +1,51 @@
+name: PR Workflow
+
+on:
+  pull_request:
+      types: [opened, synchronize]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - os: linux
+            arch: "amd64"
+          - os: linux
+            arch: "arm64"
+          - os: darwin
+            arch: "amd64"
+          - os: darwin
+            arch: "arm64"
+          - os: windows
+            arch: "386"
+          - os: windows
+            arch: "amd64"
+
+    name: Build and publish package
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        uses: actions/setup-go@v1
+        with:
+          go-version: "~1.17.5"
+
+      - name: Set .exe extension for Windows
+        run: echo "EXTENSION=.exe" >> $GITHUB_ENV
+        if: matrix.target.os == 'windows'
+
+      - name: Set executable filename
+        run: echo "FILENAME=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
+
+      - name: Build
+        run: make OUTPUT=bin/${{ env.FILENAME }}
+        env:
+          GOOS: "${{ matrix.target.os }}"
+          GOARCH: "${{ matrix.target.arch }}"
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.FILENAME }}
+          path: bin/${{ env.FILENAME }}
