@@ -64,7 +64,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		}
 
 		data := string(bytes)
-		rx := regexp.MustCompile(`^((\[(?P<HostWithPort>.*?)\]:(?P<Port>\d+))|((?P<DomainName>.*?),(?P<IP>.*?))|(?P<Host>.*?))[ ]`)
+		rx := regexp.MustCompile(`^(\[(?P<Host>.*?)\]:(?P<Port>\d+))|(?P<SingleHost>.*?)$`)
 
 		lines := strings.Split(data, "\n")
 		for _, line := range lines {
@@ -72,23 +72,25 @@ func runGenerate(cmd *cobra.Command, args []string) {
 				continue
 			}
 
-			config := NewKnownHostConfig()
+			targets := strings.Split(strings.Split(line, " ")[0], ",")
+			for _, target := range targets {
+				config := NewKnownHostConfig()
 
-			matches := rx.FindStringSubmatch(line)
+				matches := rx.FindStringSubmatch(target)
 
-			if host := matches[rx.SubexpIndex("HostWithPort")]; host != "" {
-				config.Host = host
-				config.HostName = host
-				config.Port = matches[rx.SubexpIndex("Port")]
-			} else if host := matches[rx.SubexpIndex("DomainName")]; host != "" {
-				config.Host = host
-				config.HostName = matches[rx.SubexpIndex("IP")]
-			} else if host := matches[rx.SubexpIndex("Host")]; host != "" {
-				config.Host = host
-				config.HostName = host
+				if host := matches[rx.SubexpIndex("Host")]; host != "" {
+					port := matches[rx.SubexpIndex("Port")]
+
+					config.Host = host + ":" + port
+					config.HostName = host
+					config.Port = port
+				} else if host := matches[rx.SubexpIndex("SingleHost")]; host != "" {
+					config.Host = host
+					config.HostName = host
+				}
+
+				configs = append(configs, config)
 			}
-
-			configs = append(configs, config)
 		}
 	}
 
