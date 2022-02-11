@@ -38,7 +38,7 @@ var colorPattern *regexp.Regexp
 
 func init() {
 	// Shady patch to disable color pattern matching in tview
-	colorPattern = regexp.MustCompile(``)
+	colorPattern = regexp.MustCompile(`$^`)
 
 	// Set focused border style to be the same as unfocused
 	tview.Borders.HorizontalFocus = tview.Borders.Horizontal
