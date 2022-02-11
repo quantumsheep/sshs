@@ -1,11 +1,15 @@
 package ui
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
+	_ "unsafe"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/quantumsheep/sshconfig"
@@ -28,6 +32,22 @@ type HostsTable struct {
 	displayFullProxy bool
 }
 
+//go:linkname colorPattern github.com/rivo/tview.colorPattern
+var colorPattern *regexp.Regexp
+
+func init() {
+	// Shady patch to disable color pattern matching in tview
+	colorPattern = regexp.MustCompile(``)
+
+	// Set focused border style to be the same as unfocused
+	tview.Borders.HorizontalFocus = tview.Borders.Horizontal
+	tview.Borders.VerticalFocus = tview.Borders.Vertical
+	tview.Borders.TopLeftFocus = tview.Borders.TopLeft
+	tview.Borders.TopRightFocus = tview.Borders.TopRight
+	tview.Borders.BottomLeftFocus = tview.Borders.BottomLeft
+	tview.Borders.BottomRightFocus = tview.Borders.BottomRight
+}
+
 func connect(name string, configPath string) {
 	cmd := exec.Command("ssh", "-F", configPath, strings.TrimSpace(name))
 	cmd.Stdin = os.Stdin
@@ -40,6 +60,13 @@ func connect(name string, configPath string) {
 	}
 
 	os.Exit(0)
+}
+
+func asSha256(o interface{}) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%v", o)))
+
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, displayFullProxy bool) *HostsTable {
@@ -56,10 +83,12 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 	}
 
 	table.
-		SetBorders(true).
+		SetBorders(false).
 		SetSelectable(true, false).
 		Select(0, 0).
-		SetFixed(1, 1)
+		SetFixed(1, 1).
+		SetSeparator('│').
+		SetBorder(true)
 
 	table.SetBackgroundColor(tcell.ColorReset)
 
@@ -95,7 +124,19 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 			Port:         strconv.Itoa(host.Port),
 		}
 
-		table.Hosts = append(table.Hosts, item)
+		itemSha256 := asSha256(item)
+		duplicate := false
+
+		for _, existing := range table.Hosts {
+			if asSha256(existing) == itemSha256 {
+				duplicate = true
+				break
+			}
+		}
+
+		if !duplicate {
+			table.Hosts = append(table.Hosts, item)
+		}
 	}
 
 	return table.Generate()
@@ -130,6 +171,14 @@ func (t *HostsTable) Generate() *HostsTable {
 
 	t.SetCell(0, len(headers), tview.NewTableCell("").SetSelectable(false).SetExpansion(1))
 
+	columnsCount := t.GetColumnCount()
+	selected := make([]string, columnsCount)
+
+	row, _ := t.GetSelection()
+	for col := 0; col < columnsCount; col++ {
+		selected[col] = t.GetCell(row, col).Text
+	}
+
 	for _, host := range t.Hosts {
 		target := host.HostName
 		if target == "" {
@@ -151,11 +200,21 @@ func (t *HostsTable) Generate() *HostsTable {
 		values := []string{host.Name, host.User, target, host.Port}
 		row := t.GetRowCount()
 
+		isPreviouslySelected := true
+
 		for col, value := range values {
 			cell := tview.NewTableCell(padding(value)).
 				SetTextColor(tcell.ColorWhite)
 
 			t.SetCell(row, col, cell)
+
+			if selected[col] != value {
+				isPreviouslySelected = false
+			}
+		}
+
+		if isPreviouslySelected {
+			t.Select(row, 0)
 		}
 
 		t.SetCell(row, len(values), tview.NewTableCell("").SetExpansion(1))
@@ -166,4 +225,22 @@ func (t *HostsTable) Generate() *HostsTable {
 
 func padding(text string) string {
 	return " " + text + " "
+}
+
+func (t *HostsTable) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+		key := event.Key()
+
+		switch key {
+		case tcell.KeyRune:
+			switch event.Rune() {
+			case 'g', 'G', 'j', 'k', 'h', 'l':
+				return
+			}
+		case tcell.KeyLeft, tcell.KeyRight:
+			return
+		default:
+			t.Table.InputHandler()(event, setFocus)
+		}
+	})
 }

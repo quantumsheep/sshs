@@ -50,7 +50,7 @@ func run(cmd *cobra.Command, args []string) {
 		filter = str
 	}
 
-	table := ui.NewHostsTable(app, sshConfigPath, "", displayFullProxy)
+	table := ui.NewHostsTable(app, sshConfigPath, filter, displayFullProxy)
 
 	searchBar := ui.NewSearchBar(filter)
 
