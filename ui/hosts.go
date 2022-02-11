@@ -11,6 +11,7 @@ import (
 	"strings"
 	_ "unsafe"
 
+	valid "github.com/asaskevich/govalidator"
 	"github.com/gdamore/tcell/v2"
 	"github.com/quantumsheep/sshconfig"
 	"github.com/rivo/tview"
@@ -106,14 +107,18 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 	})
 
 	for _, host := range hosts {
-		if host.HostName == "" && host.ProxyCommand == "" {
-			continue
-		}
-
 		name := strings.Join(host.Host, " ")
 
 		if name[0] == '"' && name[len(name)-1] == '"' {
 			name = name[1 : len(name)-1]
+		}
+
+		if host.HostName == "" && host.ProxyCommand == "" {
+			if valid.IsIP(name) || valid.IsDNSName(name) {
+				host.HostName = name
+			} else {
+				continue
+			}
 		}
 
 		item := Host{
