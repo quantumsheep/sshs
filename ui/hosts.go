@@ -40,6 +40,12 @@ func init() {
 	// Shady patch to disable color pattern matching in tview
 	colorPattern = regexp.MustCompile(`$^`)
 
+	// Rounded borders
+	tview.Borders.TopLeft = '╭'
+	tview.Borders.TopRight = '╮'
+	tview.Borders.BottomLeft = '╰'
+	tview.Borders.BottomRight = '╯'
+
 	// Set focused border style to be the same as unfocused
 	tview.Borders.HorizontalFocus = tview.Borders.Horizontal
 	tview.Borders.VerticalFocus = tview.Borders.Vertical
