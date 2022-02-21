@@ -105,8 +105,11 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 			row, _ := table.GetSelection()
 			hostname := table.GetCell(row, 0).Text
 
-			app.Stop()
-			connect(hostname, sshConfigPath)
+			// In case no host is selected
+			if len(hostname) > 0 {
+				app.Stop()
+				connect(hostname, sshConfigPath)
+			}
 		}
 
 		return event
