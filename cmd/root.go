@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/quantumsheep/sshs/ui"
@@ -27,15 +28,25 @@ var rootCmd = &cobra.Command{
 func run(cmd *cobra.Command, args []string) {
 	flags := cmd.Flags()
 
-	sshConfigPath := "~/.ssh/config"
-
-	if str, e := flags.GetString("config"); e == nil && str != "" {
-		sshConfigPath = str
-	}
-
-	sshConfigPath, e := homedir.Expand(sshConfigPath)
+	sshConfigPath, e := flags.GetString("config")
 	if e != nil {
 		log.Fatal(e)
+	}
+
+	if sshConfigPath == "" {
+		log.Fatal("empty config path")
+	}
+
+	absoluteSshConfigPath, e := homedir.Expand(sshConfigPath)
+	if e != nil {
+		log.Fatal(e)
+	}
+
+	if sshConfigPath == "~/.ssh/config" {
+		e := createFileRecursive(absoluteSshConfigPath)
+		if e != nil {
+			log.Fatal(e)
+		}
 	}
 
 	app := tview.NewApplication()
@@ -50,7 +61,7 @@ func run(cmd *cobra.Command, args []string) {
 		filter = str
 	}
 
-	table := ui.NewHostsTable(app, sshConfigPath, filter, displayFullProxy)
+	table := ui.NewHostsTable(app, absoluteSshConfigPath, filter, displayFullProxy)
 
 	searchBar := ui.NewSearchBar(filter)
 
@@ -64,14 +75,30 @@ func run(cmd *cobra.Command, args []string) {
 
 	flex.SetDirection(tview.FlexRow)
 
-	if err := app.SetRoot(flex, true).SetFocus(flex).Run(); err != nil {
-		panic(err)
+	if e := app.SetRoot(flex, true).SetFocus(flex).Run(); e != nil {
+		panic(e)
 	}
 }
 
+func createFileRecursive(filename string) error {
+	if _, e := os.Stat(filename); os.IsNotExist(e) {
+		if e := os.MkdirAll(path.Dir(filename), os.ModePerm); e != nil {
+			return e
+		}
+
+		f, e := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0o644)
+		if e != nil {
+			return e
+		}
+		f.Close()
+	}
+
+	return nil
+}
+
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+	if e := rootCmd.Execute(); e != nil {
+		fmt.Println(e)
 		os.Exit(1)
 	}
 }
