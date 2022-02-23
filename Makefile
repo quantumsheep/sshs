@@ -5,11 +5,21 @@ OUTPUT ?= sshs$$(if [ "$${GOOS:-$$(go env GOOS)}" == "windows" ]; then echo '.ex
 GO_PACKAGE_PATH := github.com/quantumsheep/sshs
 
 ifeq ($(LEVEL),release)
-GOLDFLAGS := -w -s
+GO_LDFLAGS ?= -s -w
 endif
 
+export CGO_CPPFLAGS=${CPPFLAGS}
+export CGO_CFLAGS=${CFLAGS}
+export CGO_CXXFLAGS=${CXXFLAGS}
+export CGO_LDFLAGS=${LDFLAGS}
+
 build:
-	go build -ldflags "$(GOLDFLAGS) -X '$(GO_PACKAGE_PATH)/cmd.Version=$(or $(strip $(VERSION)),latest)'" -o $(OUTPUT)
+	go build \
+		-trimpath \
+		-buildmode=pie \
+		-mod=readonly \
+		-modcacherw \
+		-ldflags "-linkmode external $(GO_LDFLAGS) -X '$(GO_PACKAGE_PATH)/cmd.Version=$(or $(strip $(VERSION)),latest)'" -o $(OUTPUT)
 
 clean:
 	rm -f sshs
