@@ -22,7 +22,13 @@ build:
 		-buildmode=pie \
 		-mod=readonly \
 		-modcacherw \
-		-ldflags "-linkmode external $(GO_LDFLAGS) -X '$(GO_PACKAGE_PATH)/cmd.Version=$(or $(strip $(VERSION)),latest)'" -o $(OUTPUT)
+		-ldflags "\
+			-linkmode external \
+			$(GO_LDFLAGS) \
+			-X '$(GO_PACKAGE_PATH)/cmd.Version=$(or $(strip $(VERSION)),latest)' \
+			-extldflags \"${LDFLAGS}\" \
+		" \
+		-o $(OUTPUT)
 
 clean:
 	rm -f sshs
