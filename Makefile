@@ -8,6 +8,9 @@ ifeq ($(LEVEL),release)
 GO_LDFLAGS ?= -s -w
 endif
 
+CGO_ENABLED ?= 1
+export CGO_ENABLED
+
 export CGO_CPPFLAGS=${CPPFLAGS}
 export CGO_CFLAGS=${CFLAGS}
 export CGO_CXXFLAGS=${CXXFLAGS}
