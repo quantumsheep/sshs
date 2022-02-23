@@ -1,6 +1,13 @@
 # sshs
+
+<a href="https://repology.org/project/sshs/versions">
+    <img src="https://repology.org/badge/vertical-allrepos/sshs.svg" alt="Packaging status" align="right">
+</a>
+
 Terminal user interface for SSH.  
 It uses `~/.ssh/config` to list and connect to hosts.
+
+<br>
 
 [![example](https://i.imgur.com/iPmiEVU.gif)](https://asciinema.org/a/465800)
 
