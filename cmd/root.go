@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/quantumsheep/sshs/ui"
@@ -82,7 +82,7 @@ func run(cmd *cobra.Command, args []string) {
 
 func createFileRecursive(filename string) error {
 	if _, e := os.Stat(filename); os.IsNotExist(e) {
-		if e := os.MkdirAll(path.Dir(filename), os.ModePerm); e != nil {
+		if e := os.MkdirAll(filepath.Dir(filename), os.ModePerm); e != nil {
 			return e
 		}
 
