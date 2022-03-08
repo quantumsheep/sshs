@@ -26,7 +26,7 @@ func init() {
 	flags := generateCmd.Flags()
 	flags.Bool("known-hosts", false, "Generate from known_hosts file")
 	flags.String("known-hosts-file", "~/.ssh/known_hosts", "Path of known_hosts file")
-	flags.Bool("known-hosts-allow-single-ip", false, "Allow single IP addresses (without hostname)")
+	flags.Bool("known-hosts-allow-single-ip", true, "Allow single IP addresses (without hostname)")
 
 	viper.SetDefault("author", "quantumsheep <nathanael.dmc@outlook.fr>")
 	viper.SetDefault("license", "MIT")
