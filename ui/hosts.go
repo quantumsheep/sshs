@@ -117,6 +117,9 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 
 	for _, host := range hosts {
 		name := strings.Join(host.Host, " ")
+		if name == "" {
+			continue
+		}
 
 		if name[0] == '"' && name[len(name)-1] == '"' {
 			name = name[1 : len(name)-1]
