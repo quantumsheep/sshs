@@ -13,7 +13,7 @@ import (
 
 	valid "github.com/asaskevich/govalidator"
 	"github.com/gdamore/tcell/v2"
-	"github.com/quantumsheep/sshconfig"
+	"github.com/mikkeloscar/sshconfig"
 	"github.com/rivo/tview"
 )
 
