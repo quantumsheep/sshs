@@ -1,8 +1,11 @@
 name: PR Workflow
 
 on:
+  push:
+    branches:
+      - master
+      - main
   pull_request:
-      types: [opened, synchronize]
 
 jobs:
   build:
@@ -49,3 +52,13 @@ jobs:
         with:
           name: ${{ env.FILENAME }}
           path: bin/${{ env.FILENAME }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
