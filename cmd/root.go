@@ -56,6 +56,11 @@ func run(cmd *cobra.Command, args []string) {
 		displayFullProxy = proxyFlag
 	}
 
+	sshCommandPattern, e := flags.GetString("pattern")
+	if e != nil {
+		log.Fatal(e)
+	}
+
 	filter := ""
 	if str, e := flags.GetString("search"); e == nil && str != "" {
 		filter = str
@@ -66,7 +71,7 @@ func run(cmd *cobra.Command, args []string) {
 		sort = sortFlag
 	}
 
-	table := ui.NewHostsTable(app, absoluteSshConfigPath, filter, sort, displayFullProxy)
+	table := ui.NewHostsTable(app, absoluteSshConfigPath, sshCommandPattern, filter, sort, displayFullProxy)
 
 	searchBar := ui.NewSearchBar(filter)
 
@@ -114,6 +119,7 @@ func init() {
 	flags.StringP("config", "c", "~/.ssh/config", "SSH config file")
 	flags.BoolP("proxy", "p", false, "Display full ProxyCommand")
 	flags.Bool("sort", true, "Sort hosts by name")
+	flags.String("pattern", "ssh -F %c %n", "Command pattern to execute")
 
 	viper.SetDefault("author", "quantumsheep <nathanael.dmc@outlook.fr>")
 	viper.SetDefault("license", "MIT")

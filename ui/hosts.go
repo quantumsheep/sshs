@@ -16,6 +16,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/mikkeloscar/sshconfig"
 	"github.com/rivo/tview"
+	"github.com/samber/lo"
 )
 
 type Host struct {
@@ -56,8 +57,19 @@ func init() {
 	tview.Borders.BottomRightFocus = tview.Borders.BottomRight
 }
 
-func connect(name string, configPath string) {
-	cmd := exec.Command("ssh", "-F", configPath, strings.TrimSpace(name))
+func connect(item Host, configPath string, pattern string) {
+	args := strings.Fields(pattern)
+	args = lo.Map(args, func(arg string, i int) string {
+		arg = strings.Replace(arg, "%u", item.User, -1)
+		arg = strings.Replace(arg, "%h", item.HostName, -1)
+		arg = strings.Replace(arg, "%p", item.Port, -1)
+		arg = strings.Replace(arg, "%r", item.ProxyCommand, -1)
+		arg = strings.Replace(arg, "%n", item.Name, -1)
+		arg = strings.Replace(arg, "%c", configPath, -1)
+		return arg
+	})
+
+	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -77,7 +89,7 @@ func asSha256(o interface{}) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, sortFlag bool, displayFullProxy bool) *HostsTable {
+func NewHostsTable(app *tview.Application, sshConfigPath string, sshCommandPattern string, filter string, sortFlag bool, displayFullProxy bool) *HostsTable {
 	hosts, e := sshconfig.ParseSSHConfig(sshConfigPath)
 	if e != nil {
 		log.Fatal(e)
@@ -108,8 +120,14 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 
 			// In case no host is selected
 			if len(hostname) > 0 {
-				app.Stop()
-				connect(hostname, sshConfigPath)
+				item, ok := lo.Find(table.Hosts, func(item Host) bool {
+					return item.Name == strings.TrimSpace(hostname)
+				})
+
+				if ok {
+					app.Stop()
+					connect(item, sshConfigPath, sshCommandPattern)
+				}
 			}
 		}
 
