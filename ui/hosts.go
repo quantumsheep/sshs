@@ -76,6 +76,7 @@ func connect(item Host, configPath string, pattern string) {
 
 	err := cmd.Run()
 	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(cmd.ProcessState.ExitCode())
 	}
 
