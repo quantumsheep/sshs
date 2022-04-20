@@ -42,6 +42,11 @@ makepkg -si
 yay -Syua --needed --noconfirm sshs
 ```
 
+## NixOS / Nix (with flakes enabled)
+```shell
+nix profile install 'github:quantumsheep/sshs'
+```
+
 ## From releases
 Releases contains prebuilt binaries for Linux, macOS and Windows. You can download them at https://github.com/quantumsheep/sshs/releases.
 
