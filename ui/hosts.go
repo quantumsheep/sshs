@@ -159,7 +159,7 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 
 	if sortFlag {
 		sort.Slice(table.Hosts, func(i, j int) bool {
-			return table.Hosts[i].Name < table.Hosts[j].Name
+			return strings.ToLower(table.Hosts[i].Name) < strings.ToLower(table.Hosts[j].Name)
 		})
 	}
 
