@@ -193,6 +193,7 @@ func (t *HostsTable) Generate() *HostsTable {
 		t.SetCell(0, col, cell)
 	}
 
+	t.GetCell(0, len(headers)-1).SetAlign(tview.AlignRight)
 	t.SetCell(0, len(headers), tview.NewTableCell("").SetSelectable(false).SetExpansion(1))
 
 	columnsCount := t.GetColumnCount()
@@ -241,6 +242,7 @@ func (t *HostsTable) Generate() *HostsTable {
 			t.Select(row, 0)
 		}
 
+		t.GetCell(row, len(values)-1).SetAlign(tview.AlignRight)
 		t.SetCell(row, len(values), tview.NewTableCell("").SetExpansion(1))
 	}
 
