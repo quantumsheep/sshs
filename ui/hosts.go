@@ -70,6 +70,7 @@ func connect(item Host, configPath string, pattern string) {
 	})
 
 	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Env = os.Environ()
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
