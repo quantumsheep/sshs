@@ -185,6 +185,10 @@ func (t *HostsTable) Generate() *HostsTable {
 
 	headers := []string{"Hostname", "User", "Target", "Port"}
 
+	if t.displayFullProxy {
+		headers = append(headers, "ProxyCommand")
+	}
+
 	for col, header := range headers {
 		cell := tview.NewTableCell(padding(header)).
 			SetSelectable(false).
@@ -223,6 +227,11 @@ func (t *HostsTable) Generate() *HostsTable {
 		}
 
 		values := []string{host.Name, host.User, target, host.Port}
+
+		if t.displayFullProxy {
+			values = append(values, host.ProxyCommand)
+		}
+
 		row := t.GetRowCount()
 
 		isPreviouslySelected := true
