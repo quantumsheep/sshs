@@ -67,8 +67,6 @@ func connect(name string, configPath string) {
 	if err != nil {
 		os.Exit(cmd.ProcessState.ExitCode())
 	}
-
-	os.Exit(0)
 }
 
 func asSha256(o interface{}) string {
@@ -118,8 +116,31 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 	})
 
 	for _, host := range hosts {
+		aliases := make([]string, 0)
+
+		isInString := false
+
+		for _, alias := range host.Host {
+			if isInString {
+				aliases[len(aliases)-1] += " " + alias
+
+				if strings.HasSuffix(alias, "\"") {
+					isInString = false
+				}
+
+				continue
+			}
+
+			if strings.HasPrefix(alias, "\"") {
+				isInString = true
+			}
+
+			aliases = append(aliases, alias)
+
+		}
+
 		// Get first entry, considere it as the full hostname (not an alias)
-		name := host.Host[0]
+		name := aliases[0]
 		if name == "" {
 			continue
 		}
@@ -137,19 +158,12 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 		}
 
 		item := Host{
-			Aliases:      []string{},
+			Aliases:      aliases,
 			Name:         name,
 			User:         host.User,
 			HostName:     host.HostName,
 			ProxyCommand: host.ProxyCommand,
 			Port:         strconv.Itoa(host.Port),
-		}
-
-		// If there is other name than the main name (mean aliases)
-		if len(host.Host) > 1 {
-			for _, alias_name := range host.Host[1:] {
-				item.Aliases = append(item.Aliases, alias_name)
-			}
 		}
 
 		itemSha256 := asSha256(item)
@@ -236,7 +250,7 @@ func (t *HostsTable) Generate() *HostsTable {
 			continue
 		}
 
-		values := []string{host.Name, strings.Join(host.Aliases, " - "), host.User, target, host.Port}
+		values := []string{host.Name, strings.Join(host.Aliases, ", "), host.User, target, host.Port}
 
 		if t.displayFullProxy {
 			values = append(values, host.ProxyCommand)
