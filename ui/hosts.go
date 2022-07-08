@@ -145,7 +145,7 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 			Port:         strconv.Itoa(host.Port),
 		}
 
-		# If there is other name than the main name (mean aliases)
+		// If there is other name than the main name (mean aliases)
 		if len(host.Host) > 1 {
 			for _, alias_name := range host.Host[1:] {
 				item.Aliases = append(item.Aliases, alias_name)
