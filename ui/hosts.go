@@ -19,6 +19,7 @@ import (
 )
 
 type Host struct {
+	Aliases      []string
 	Name         string
 	User         string
 	HostName     string
@@ -117,7 +118,8 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 	})
 
 	for _, host := range hosts {
-		name := strings.Join(host.Host, " ")
+		// Get first entry, considere it as the full hostname (not an alias)
+		name := host.Host[0]
 		if name == "" {
 			continue
 		}
@@ -135,11 +137,19 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 		}
 
 		item := Host{
+			Aliases:      []string{},
 			Name:         name,
 			User:         host.User,
 			HostName:     host.HostName,
 			ProxyCommand: host.ProxyCommand,
 			Port:         strconv.Itoa(host.Port),
+		}
+
+		# If there is other name than the main name (mean aliases)
+		if len(host.Host) > 1 {
+			for _, alias_name := range host.Host[1:] {
+				item.Aliases = append(item.Aliases, alias_name)
+			}
 		}
 
 		itemSha256 := asSha256(item)
@@ -183,7 +193,7 @@ func (t *HostsTable) Filter(filter string) *HostsTable {
 func (t *HostsTable) Generate() *HostsTable {
 	t.Clear()
 
-	headers := []string{"Hostname", "User", "Target", "Port"}
+	headers := []string{"Hostname", "Aliases", "User", "Target", "Port"}
 
 	if t.displayFullProxy {
 		headers = append(headers, "ProxyCommand")
@@ -222,11 +232,11 @@ func (t *HostsTable) Generate() *HostsTable {
 			}
 		}
 
-		if !strings.Contains(strings.ToLower(host.Name), t.filter) && !strings.Contains(strings.ToLower(target), t.filter) {
+		if !strings.Contains(strings.ToLower(host.Name), t.filter) && !strings.Contains(strings.Join(host.Aliases, " - "), t.filter) && !strings.Contains(strings.ToLower(target), t.filter) {
 			continue
 		}
 
-		values := []string{host.Name, host.User, target, host.Port}
+		values := []string{host.Name, strings.Join(host.Aliases, " - "), host.User, target, host.Port}
 
 		if t.displayFullProxy {
 			values = append(values, host.ProxyCommand)
