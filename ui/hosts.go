@@ -99,7 +99,13 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 
 	table.SetBackgroundColor(tcell.ColorReset)
 
+	isSuspended := false
 	table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if isSuspended {
+			isSuspended = false
+			return event
+		}
+
 		switch event.Key() {
 		case tcell.KeyEnter:
 			row, _ := table.GetSelection()
@@ -107,8 +113,10 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 
 			// In case no host is selected
 			if len(hostname) > 0 {
-				app.Stop()
-				connect(hostname, sshConfigPath)
+				app.Suspend(func() {
+					isSuspended = true
+					connect(hostname, sshConfigPath)
+				})
 			}
 		}
 
