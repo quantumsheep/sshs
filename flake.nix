@@ -13,13 +13,14 @@
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
-        version = "3.2.0-" + (self.shortRev or "dirty");
+        version = "3.2.0" + "-" + (self.shortRev or "dirty");
         pkgs = nixpkgs.legacyPackages.${system};
       in rec {
         packages.default = pkgs.buildGoModule {
           pname = "sshs";
           inherit version;
           src = ./.;
+          ldflags = [ "-s" "-w" "-X github.com/quantumsheep/sshs/cmd.Version=${version}" ];
           vendorSha256 = "wClgX08UbItCpWOkWLgmsy7Ad5LlpvXrStN3JHujVww=";
         };
       }
