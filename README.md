@@ -42,9 +42,15 @@ makepkg -si
 yay -Syua --needed --noconfirm sshs
 ```
 
-## NixOS / Nix (with flakes enabled)
+## NixOS / Nix
+NixOS config and Home Manager config might not work yet on non-unstable channels (PR [#181901](https://github.com/NixOS/nixpkgs/pull/181901))
 ```shell
+# As a Flake
 nix profile install 'github:quantumsheep/sshs'
+# In your NixOS configuration
+environment.systemPackages = with pkgs; [ sshs ];
+# In your Home Manager configuration
+home.packages = with pkgs; [ sshs ];
 ```
 
 ## From releases
