@@ -43,7 +43,6 @@ yay -Syua --needed --noconfirm sshs
 ```
 
 ## NixOS / Nix
-NixOS config and Home Manager config might not work yet on non-unstable channels (PR [#181901](https://github.com/NixOS/nixpkgs/pull/181901))
 
 ### As a Flake
 ```shell
