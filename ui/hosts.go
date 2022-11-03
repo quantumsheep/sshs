@@ -95,6 +95,7 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 		Select(0, 0).
 		SetFixed(1, 1).
 		SetSeparator('│').
+		SetWrapSelection(true, false).
 		SetBorder(true)
 
 	table.SetBackgroundColor(tcell.ColorReset)
