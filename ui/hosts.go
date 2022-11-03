@@ -103,6 +103,7 @@ func NewHostsTable(app *tview.Application, options HostsTableOptions) *HostsTabl
 		Select(0, 0).
 		SetFixed(1, 1).
 		SetSeparator('│').
+		SetWrapSelection(true, false).
 		SetBorder(true)
 
 	table.SetBackgroundColor(tcell.ColorReset)
