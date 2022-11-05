@@ -76,7 +76,7 @@ func asSha256(o interface{}) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, sortFlag bool, displayFullProxy bool) *HostsTable {
+func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, sortFlag bool, displayFullProxy bool, exit bool) *HostsTable {
 	hosts, e := sshconfig.ParseSSHConfig(sshConfigPath)
 	if e != nil {
 		log.Fatal(e)
@@ -115,6 +115,9 @@ func NewHostsTable(app *tview.Application, sshConfigPath string, filter string, 
 			if len(hostname) > 0 {
 				app.Suspend(func() {
 					isSuspended = true
+					if exit {
+						app.Stop()
+					}
 					connect(hostname, sshConfigPath)
 				})
 			}
