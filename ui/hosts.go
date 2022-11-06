@@ -283,8 +283,7 @@ func (t *HostsTable) Generate() *HostsTable {
 		isPreviouslySelected := true
 
 		for col, value := range values {
-			cell := tview.NewTableCell(padding(value)).
-				SetTextColor(tcell.ColorWhite)
+			cell := tview.NewTableCell(padding(value))
 
 			t.SetCell(row, col, cell)
 
