@@ -61,17 +61,23 @@ func run(cmd *cobra.Command, args []string) {
 		filter = str
 	}
 
-	sort := true
+	sortByName := true
 	if sortFlag, e := flags.GetBool("sort"); e == nil {
-		sort = sortFlag
+		sortByName = sortFlag
 	}
 
-	exit := false
+	exitAfterSession := false
 	if exitFlag, e := flags.GetBool("exit"); e == nil {
-		exit = exitFlag
+		exitAfterSession = exitFlag
 	}
 
-	table := ui.NewHostsTable(app, absoluteSshConfigPath, filter, sort, displayFullProxy, exit)
+	table := ui.NewHostsTable(app, ui.HostsTableOptions{
+		SSHConfigPath:          absoluteSshConfigPath,
+		Filter:                 filter,
+		ShouldSortByName:       sortByName,
+		ShouldDisplayFullProxy: displayFullProxy,
+		ShouldExitAfterSession: exitAfterSession,
+	})
 
 	searchBar := ui.NewSearchBar(filter)
 
