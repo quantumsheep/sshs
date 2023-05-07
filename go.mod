@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/gdamore/tcell/v2 v2.5.3
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/mikkeloscar/sshconfig v0.1.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/rivo/tview v0.0.0-20221029100920-c4a7e501810d
