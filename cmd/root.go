@@ -71,13 +71,18 @@ func run(cmd *cobra.Command, args []string) {
 		exitAfterSession = exitFlag
 	}
 
+	sshArguments := ""
+	if ssh_argumentsFlag, e := flags.GetString("ssh-arguments"); e == nil {
+		sshArguments = ssh_argumentsFlag
+	}
+
 	table := ui.NewHostsTable(app, ui.HostsTableOptions{
 		SSHConfigPath:          absoluteSshConfigPath,
 		Filter:                 filter,
 		ShouldSortByName:       sortByName,
 		ShouldDisplayFullProxy: displayFullProxy,
 		ShouldExitAfterSession: exitAfterSession,
-	})
+	}, sshArguments)
 
 	searchBar := ui.NewSearchBar(filter)
 
@@ -121,6 +126,7 @@ func Execute() {
 
 func init() {
 	flags := rootCmd.PersistentFlags()
+	flags.StringP("ssh-arguments", "a", "", "Arguments for the ssh command (example: '-D 1080'")
 	flags.StringP("search", "s", "", "Host search filter")
 	flags.StringP("config", "c", "~/.ssh/config", "SSH config file")
 	flags.BoolP("proxy", "p", false, "Display full ProxyCommand")

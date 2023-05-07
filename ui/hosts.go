@@ -14,6 +14,7 @@ import (
 
 	valid "github.com/asaskevich/govalidator"
 	"github.com/gdamore/tcell/v2"
+	"github.com/google/shlex"
 	"github.com/mikkeloscar/sshconfig"
 	"github.com/rivo/tview"
 )
@@ -57,8 +58,18 @@ func init() {
 	tview.Borders.BottomRightFocus = tview.Borders.BottomRight
 }
 
-func connect(name string, configPath string) {
-	cmd := exec.Command("ssh", "-F", configPath, strings.TrimSpace(name))
+func connect(name string, configPath string, sshArguments string) {
+	arguments := []string{"-F", configPath, strings.TrimSpace(name)}
+	if sshArguments != "" {
+		//lexerArguments := shlex.NewLexer(strings.NewReader(sshArguments))
+		sshArgumentsParsed, e := shlex.Split(sshArguments)
+		if e != nil {
+			log.Fatal(e)
+		}
+
+		arguments = append(arguments, sshArgumentsParsed...)
+	}
+	cmd := exec.Command("ssh", arguments...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -84,7 +95,7 @@ type HostsTableOptions struct {
 	ShouldExitAfterSession bool
 }
 
-func NewHostsTable(app *tview.Application, options HostsTableOptions) *HostsTable {
+func NewHostsTable(app *tview.Application, options HostsTableOptions, sshArguments string) *HostsTable {
 	hosts, e := sshconfig.ParseSSHConfig(options.SSHConfigPath)
 	if e != nil {
 		log.Fatal(e)
@@ -129,7 +140,7 @@ func NewHostsTable(app *tview.Application, options HostsTableOptions) *HostsTabl
 						app.Stop()
 					}
 
-					connect(hostname, options.SSHConfigPath)
+					connect(hostname, options.SSHConfigPath, sshArguments)
 				})
 			}
 		}
