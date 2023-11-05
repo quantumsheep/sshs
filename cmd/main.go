@@ -113,8 +113,7 @@ func run(cmd *cobra.Command, args []string) {
 			}
 
 			if exitAfterSessionEnds {
-				d.Stop()
-				return
+				os.Exit(0)
 			}
 
 			err = d.Resume()
