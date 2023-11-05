@@ -77,10 +77,10 @@ func run(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	// exitAfterSessionEnds, err := flags.GetBool("exit")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	exitAfterSessionEnds, err := flags.GetBool("exit")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	additionalSSHArguments, err := flags.GetString("ssh-arguments")
 	if err != nil {
@@ -105,6 +105,12 @@ func run(cmd *cobra.Command, args []string) {
 			sshHost := ssh.ParseHosts(host.Host)
 			fmt.Printf("Connecting to %s...\n", sshHost)
 			ssh.Run(sshHost, absoluteSSHConfigPath, additionalSSHArguments)
+
+			if exitAfterSessionEnds {
+				d.Stop()
+				return
+			}
+
 			d.Resume()
 		},
 	})

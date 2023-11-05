@@ -109,3 +109,7 @@ func (d *Display) Pause() error {
 func (d *Display) Resume() error {
 	return d.Program.RestoreTerminal()
 }
+
+func (d *Display) Stop() {
+	d.Program.Quit()
+}
