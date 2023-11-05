@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         uses: actions/setup-go@v3
         with:
-          go-version: v1.18
+          go-version: v1.21
 
       - name: Set .exe extension for Windows
         run: echo "EXTENSION=.exe" >> $GITHUB_ENV
