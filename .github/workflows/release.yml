@@ -40,7 +40,7 @@ jobs:
         run: echo "FILENAME=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
 
       - name: Build
-        run: make OUTPUT=bin/${{ env.FILENAME }}
+        run: make build OUTPUT=bin/${{ env.FILENAME }}
         env:
           GOOS: "${{ matrix.target.os }}"
           GOARCH: "${{ matrix.target.arch }}"

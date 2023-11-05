@@ -9,7 +9,7 @@ GOLDFLAGS := -w -s
 endif
 
 build:
-	go build -ldflags "$(GOLDFLAGS) -X '$(GO_PACKAGE_PATH)/cmd.Version=$(or $(strip $(VERSION)),latest)'" -o $(OUTPUT)
+	go build -ldflags "$(GOLDFLAGS) -X 'main.Version=$(or $(strip $(VERSION)),latest)'" -o $(OUTPUT) cmd/main.go
 
 clean:
 	rm -f sshs
