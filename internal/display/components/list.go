@@ -22,7 +22,7 @@ type ListItem struct {
 
 func (i *ListItem) Title() string       { return i.Name }
 func (i *ListItem) Description() string { return i.Details }
-func (i *ListItem) FilterValue() string { return i.Name }
+func (i *ListItem) FilterValue() string { return i.Name + i.Details }
 
 type ListComponent struct {
 	Model list.Model
