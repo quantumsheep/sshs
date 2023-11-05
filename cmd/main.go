@@ -100,18 +100,27 @@ func run(cmd *cobra.Command, args []string) {
 		SearchFilter:              searchFilter,
 
 		OnSSHHostSelected: func(host *sshconfig.SSHHost) {
-			d.Pause()
+			err := d.Pause()
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			sshHost := ssh.ParseHosts(host.Host)
 			fmt.Printf("Connecting to %s...\n", sshHost)
-			ssh.Run(sshHost, absoluteSSHConfigPath, additionalSSHArguments)
+			err = ssh.Run(sshHost, absoluteSSHConfigPath, additionalSSHArguments)
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			if exitAfterSessionEnds {
 				d.Stop()
 				return
 			}
 
-			d.Resume()
+			err = d.Resume()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	})
 
