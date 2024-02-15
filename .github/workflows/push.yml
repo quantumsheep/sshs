@@ -15,28 +15,22 @@ jobs:
           - os: linux
             arch: "amd64"
             rust-target: "x86_64-unknown-linux-gnu"
-            runs-on: ubuntu-latest
           - os: linux
             arch: "arm64"
             rust-target: "aarch64-unknown-linux-gnu"
-            runs-on: ubuntu-latest
           - os: darwin
             arch: "amd64"
             rust-target: "x86_64-apple-darwin"
-            runs-on: macos-latest
           - os: darwin
             arch: "arm64"
             rust-target: "aarch64-apple-darwin"
-            runs-on: macos-latest
           - os: windows
             arch: "amd64"
             rust-target: "x86_64-pc-windows-msvc"
-            runs-on: windows-latest
           - os: windows
             arch: "arm64"
             rust-target: "aarch64-pc-windows-msvc"
-            runs-on: windows-latest
-    runs-on: ${{ matrix.target.runs-on }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -68,35 +62,33 @@ jobs:
           - os: linux
             arch: "amd64"
             rust-target: "x86_64-unknown-linux-gnu"
-            runs-on: ubuntu-latest
           - os: linux
             arch: "arm64"
             rust-target: "aarch64-unknown-linux-gnu"
-            runs-on: ubuntu-latest
           - os: darwin
             arch: "amd64"
             rust-target: "x86_64-apple-darwin"
-            runs-on: macos-latest
           - os: darwin
             arch: "arm64"
             rust-target: "aarch64-apple-darwin"
-            runs-on: macos-latest
           - os: windows
             arch: "amd64"
             rust-target: "x86_64-pc-windows-msvc"
-            runs-on: windows-latest
           - os: windows
             arch: "arm64"
             rust-target: "aarch64-pc-windows-msvc"
-            runs-on: windows-latest
-    runs-on: ${{ matrix.target.runs-on }}
+    runs-on: ubuntu-latest
     name: Build and save artifact
     steps:
       - uses: actions/checkout@v4
 
+      - uses: docker/setup-buildx-action@v3
+
       - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
-      # - uses: Swatinem/rust-cache@v2
+      - run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target.rust-target }}
