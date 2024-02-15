@@ -15,22 +15,28 @@ jobs:
           - os: linux
             arch: "amd64"
             rust-target: "x86_64-unknown-linux-gnu"
+            runs-on: ubuntu-latest
           - os: linux
             arch: "arm64"
             rust-target: "aarch64-unknown-linux-gnu"
+            runs-on: ubuntu-latest
           - os: darwin
             arch: "amd64"
             rust-target: "x86_64-apple-darwin"
+            runs-on: macos-latest
           - os: darwin
             arch: "arm64"
             rust-target: "aarch64-apple-darwin"
+            runs-on: macos-latest
           - os: windows
             arch: "amd64"
             rust-target: "x86_64-pc-windows-msvc"
+            runs-on: windows-latest
           - os: windows
             arch: "arm64"
             rust-target: "aarch64-pc-windows-msvc"
-    runs-on: ubuntu-latest
+            runs-on: windows-latest
+    runs-on: ${{ matrix.target.runs-on }}
     steps:
       - uses: actions/checkout@v4
 
@@ -62,22 +68,28 @@ jobs:
           - os: linux
             arch: "amd64"
             rust-target: "x86_64-unknown-linux-gnu"
+            runs-on: ubuntu-latest
           - os: linux
             arch: "arm64"
             rust-target: "aarch64-unknown-linux-gnu"
+            runs-on: ubuntu-latest
           - os: darwin
             arch: "amd64"
             rust-target: "x86_64-apple-darwin"
+            runs-on: macos-latest
           - os: darwin
             arch: "arm64"
             rust-target: "aarch64-apple-darwin"
+            runs-on: macos-latest
           - os: windows
             arch: "amd64"
             rust-target: "x86_64-pc-windows-msvc"
+            runs-on: windows-latest
           - os: windows
             arch: "arm64"
             rust-target: "aarch64-pc-windows-msvc"
-    runs-on: ubuntu-latest
+            runs-on: windows-latest
+    runs-on: ${{ matrix.target.runs-on }}
     name: Build and save artifact
     steps:
       - uses: actions/checkout@v4
