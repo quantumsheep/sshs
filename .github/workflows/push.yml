@@ -38,7 +38,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - run: cargo check --target ${{ matrix.target }}
+      - run: cargo check --target ${{ matrix.target.rust-target }}
 
   clippy:
     needs:
