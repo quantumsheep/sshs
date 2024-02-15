@@ -96,7 +96,7 @@ jobs:
 
       - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
-      - uses: Swatinem/rust-cache@v2
+      # - uses: Swatinem/rust-cache@v2
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target.rust-target }}
