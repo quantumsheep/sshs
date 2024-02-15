@@ -11,7 +11,7 @@ jobs:
   check:
     strategy:
       matrix:
-        target: &targets
+        target:
           - os: linux
             arch: "amd64"
             rust-target: "x86_64-unknown-linux-gnu"
@@ -58,7 +58,25 @@ jobs:
       - clippy
     strategy:
       matrix:
-        target: *targets
+        target:
+          - os: linux
+            arch: "amd64"
+            rust-target: "x86_64-unknown-linux-gnu"
+          - os: linux
+            arch: "arm64"
+            rust-target: "aarch64-unknown-linux-gnu"
+          - os: darwin
+            arch: "amd64"
+            rust-target: "x86_64-apple-darwin"
+          - os: darwin
+            arch: "arm64"
+            rust-target: "aarch64-apple-darwin"
+          - os: windows
+            arch: "amd64"
+            rust-target: "x86_64-pc-windows-msvc"
+          - os: windows
+            arch: "arm64"
+            rust-target: "aarch64-pc-windows-msvc"
     runs-on: ubuntu-latest
     name: Build and save artifact
     steps:
