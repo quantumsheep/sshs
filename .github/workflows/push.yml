@@ -32,7 +32,7 @@ jobs:
             rust-target: "aarch64-pc-windows-msvc"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
@@ -45,7 +45,7 @@ jobs:
       - check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - run: rustup toolchain install stable --profile minimal --component clippy --no-self-update
 
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and save artifact
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
