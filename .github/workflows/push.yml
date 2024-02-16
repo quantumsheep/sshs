@@ -95,7 +95,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cross build --release --target ${{ matrix.target.rust-target }}
+        run: cargo build --release --target ${{ matrix.target.rust-target }}
 
       - name: Set .exe extension for Windows
         run: echo "EXTENSION=.exe" >> $GITHUB_ENV
