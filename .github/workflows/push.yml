@@ -120,7 +120,7 @@ jobs:
         id: set_filename
         run: echo "filename=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ steps.set_extension.outputs.extension }}" >> $GITHUB_OUTPUT
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           if-no-files-found: error
           name: ${{ steps.set_filename.outputs.filename }}
