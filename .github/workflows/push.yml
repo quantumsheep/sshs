@@ -34,7 +34,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
+      - name: Install toolchain
+        run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
       - uses: Swatinem/rust-cache@v2
 
@@ -47,7 +48,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: rustup toolchain install stable --profile minimal --component clippy --no-self-update
+      - name: Install toolchain
+        run: rustup toolchain install stable --profile minimal --component clippy --no-self-update
 
       - uses: Swatinem/rust-cache@v2
 
@@ -89,32 +91,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
+      - name: Install toolchain
+        run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
-      - run: cargo install cross --git https://github.com/cross-rs/cross
-        if: matrix.target.os != 'windows' && matrix.target.os != 'darwin'
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+        if: ${{ matrix.target.os != 'windows' && matrix.target.os != 'darwin' }}
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build
+      - name: Build using cross
         run: cross build --release --target ${{ matrix.target.rust-target }}
-        if: matrix.target.os != 'windows' && matrix.target.os != 'darwin'
+        if: ${{ matrix.target.os != 'windows' && matrix.target.os != 'darwin' }}
 
-      - name: Build
+      - name: Build using cargo
         run: cargo build --release --target ${{ matrix.target.rust-target }}
         if: matrix.target.os == 'windows' || matrix.target.os == 'darwin'
 
       - name: Set .exe extension for Windows
-        run: echo "EXTENSION=.exe" >> $GITHUB_ENV
-        if: matrix.target.os == 'windows'
+        id: set-extension
+        run: echo "extension=.exe" >> $GITHUB_OUTPUT
+        if: ${{ matrix.target.os == 'windows' }}
 
       - name: Set executable filename
-        run: echo "FILENAME=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
+        id: set-filename
+        run: echo "filename=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ steps.set-extension.outputs.extension }}" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{ env.FILENAME }}
-          path: target/${{ matrix.target.rust-target }}/release/sshs${{ env.EXTENSION }}
+          name: ${{ steps.set-filename.outputs.filename }}
+          path: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set-extension.outputs.extension }}
 
   # nix:
   #   runs-on: ubuntu-latest
