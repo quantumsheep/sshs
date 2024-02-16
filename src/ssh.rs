@@ -39,7 +39,11 @@ pub fn connect(host: &Host) -> Result<(), Box<dyn Error>> {
 /// # Errors
 ///
 /// Will return `Err` if the command cannot be executed.
-pub fn run_with_pattern(pattern: &String, host: &Host) -> Result<(), Box<dyn Error>> {
+/// 
+/// # Panics
+/// 
+/// Will panic if the regex cannot be compiled.
+pub fn run_with_pattern(pattern: &str, host: &Host) -> Result<(), Box<dyn Error>> {
     let re = Regex::new(r"(?P<skip>%%)|(?P<h>%h)|(?P<u>%u)|(?P<p>%p)").unwrap();
     let command = re.replace_all(pattern, |caps: &regex::Captures| {
         if let Some(p) = caps.name("skip") {
@@ -56,7 +60,7 @@ pub fn run_with_pattern(pattern: &String, host: &Host) -> Result<(), Box<dyn Err
     });
 
     let mut args = shlex::split(&command)
-        .ok_or(format!("Failed to parse command: {}", command))?
+        .ok_or(format!("Failed to parse command: {command}"))?
         .into_iter()
         .collect::<VecDeque<String>>();
     let command = args.pop_front().ok_or("Failed to get command")?;
