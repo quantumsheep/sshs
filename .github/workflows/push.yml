@@ -88,6 +88,9 @@ jobs:
             runs-on: windows-latest
     runs-on: ${{ matrix.target.runs-on }}
     name: Build and save artifact
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
