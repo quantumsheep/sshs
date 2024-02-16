@@ -16,3 +16,8 @@
 
 # Nix result directory
 result
+
+
+# Added by cargo
+
+/target

@@ -8,70 +8,132 @@ on:
   pull_request:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  check:
     strategy:
       matrix:
         target:
           - os: linux
             arch: "amd64"
+            rust-target: "x86_64-unknown-linux-gnu"
           - os: linux
             arch: "arm64"
+            rust-target: "aarch64-unknown-linux-gnu"
           - os: darwin
             arch: "amd64"
+            rust-target: "x86_64-apple-darwin"
           - os: darwin
             arch: "arm64"
-          - os: windows
-            arch: "386"
+            rust-target: "aarch64-apple-darwin"
           - os: windows
             arch: "amd64"
-
-    name: Build and save artifact
+            rust-target: "x86_64-pc-windows-msvc"
+          - os: windows
+            arch: "arm64"
+            rust-target: "aarch64-pc-windows-msvc"
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        uses: actions/setup-go@v3
-        with:
-          go-version: v1.21
+      - name: Install toolchain
+        run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo check --target ${{ matrix.target.rust-target }}
+
+  clippy:
+    needs:
+      - check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: rustup toolchain install stable --profile minimal --component clippy --no-self-update
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo clippy --all-targets --all-features -- -W clippy::pedantic -D warnings
+
+  build:
+    needs:
+      - clippy
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - os: linux
+            arch: "amd64"
+            rust-target: "x86_64-unknown-linux-gnu"
+            runs-on: ubuntu-latest
+          - os: linux
+            arch: "arm64"
+            rust-target: "aarch64-unknown-linux-gnu"
+            runs-on: ubuntu-latest
+          - os: darwin
+            arch: "amd64"
+            rust-target: "x86_64-apple-darwin"
+            runs-on: macos-latest
+          - os: darwin
+            arch: "arm64"
+            rust-target: "aarch64-apple-darwin"
+            runs-on: macos-latest
+          - os: windows
+            arch: "amd64"
+            rust-target: "x86_64-pc-windows-msvc"
+            runs-on: windows-latest
+          - os: windows
+            arch: "arm64"
+            rust-target: "aarch64-pc-windows-msvc"
+            runs-on: windows-latest
+    runs-on: ${{ matrix.target.runs-on }}
+    name: Build and save artifact
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
+
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+        if: ${{ matrix.target.os != 'windows' && matrix.target.os != 'darwin' }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build using cross
+        run: cross build --release --target ${{ matrix.target.rust-target }}
+        if: ${{ matrix.target.os != 'windows' && matrix.target.os != 'darwin' }}
+
+      - name: Build using cargo
+        run: cargo build --release --target ${{ matrix.target.rust-target }}
+        if: matrix.target.os == 'windows' || matrix.target.os == 'darwin'
 
       - name: Set .exe extension for Windows
-        run: echo "EXTENSION=.exe" >> $GITHUB_ENV
-        if: matrix.target.os == 'windows'
+        id: set_extension
+        run: echo "extension=.exe" >> $GITHUB_OUTPUT
+        if: ${{ matrix.target.os == 'windows' }}
 
       - name: Set executable filename
-        run: echo "FILENAME=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ env.EXTENSION }}" >> $GITHUB_ENV
+        id: set_filename
+        run: echo "filename=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ steps.set_extension.outputs.extension }}" >> $GITHUB_OUTPUT
 
-      - name: Build
-        run: make build OUTPUT=bin/${{ env.FILENAME }}
-        env:
-          GOOS: "${{ matrix.target.os }}"
-          GOARCH: "${{ matrix.target.arch }}"
-
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.FILENAME }}
-          path: bin/${{ env.FILENAME }}
+          if-no-files-found: error
+          name: ${{ steps.set_filename.outputs.filename }}
+          path: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}
+          compression-level: 0
 
-  nix:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: cachix/install-nix-action@v17
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
+  # nix:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - uses: cachix/install-nix-action@v17
+  #       with:
+  #         nix_path: nixpkgs=channel:nixos-unstable
 
-      - run: nix build
-      - run: nix flake check
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: v1.21
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: latest
+  #     - run: nix build
+  #     - run: nix flake check
