@@ -19,15 +19,20 @@ use crate::ssh;
 
 const INFO_TEXT: &str = "(Esc) quit | (↑) move up | (↓) move down | (enter) select";
 
+#[derive(Clone)]
 pub struct AppConfig {
     pub config_path: String,
+
     pub search_filter: Option<String>,
     pub sort_by_name: bool,
-
     pub display_proxy_command: bool,
+
+    pub exit_after_ssh: bool,
 }
 
 pub struct App {
+    config: AppConfig,
+
     search: Input,
 
     table_state: TableState,
@@ -50,6 +55,8 @@ impl App {
         let search_input = config.search_filter.clone().unwrap_or_default();
 
         Ok(App {
+            config: config.clone(),
+
             search: search_input.into(),
 
             table_state: TableState::default().with_selected(0),
@@ -64,15 +71,11 @@ impl App {
     ///
     /// Will return `Err` if the terminal cannot be configured.
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        // setup terminal
-        enable_raw_mode()?;
-
-        let mut stdout = io::stdout().lock();
-        execute!(stdout, Hide, EnterAlternateScreen, EnableMouseCapture)?;
-
+        let stdout = io::stdout().lock();
         let backend = CrosstermBackend::new(stdout);
-        let terminal: Rc<RefCell<Terminal<CrosstermBackend<io::StdoutLock<'_>>>>> =
-            Rc::new(RefCell::new(Terminal::new(backend)?));
+        let terminal = Rc::new(RefCell::new(Terminal::new(backend)?));
+
+        setup_terminal(&terminal)?;
 
         // create app and run it
         let res = self.run(&terminal);
@@ -119,7 +122,12 @@ impl App {
                             restore_terminal(terminal).expect("Failed to restore terminal");
                             ssh::connect(host)?;
 
-                            return Ok(());
+                            if self.config.exit_after_ssh {
+                                return Ok(());
+                            }
+
+                            setup_terminal(terminal).expect("Failed to setup terminal");
+                            terminal.borrow_mut().clear()?;
                         }
                         _ => {
                             self.search.handle_event(&ev);
@@ -157,6 +165,24 @@ impl App {
         };
         self.table_state.select(Some(i));
     }
+}
+
+fn setup_terminal<B: Backend>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<(), Box<dyn Error>>
+where
+    B: std::io::Write,
+{
+    let mut terminal = terminal.borrow_mut();
+
+    // setup terminal
+    enable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        Hide,
+        EnterAlternateScreen,
+        EnableMouseCapture
+    )?;
+
+    Ok(())
 }
 
 fn restore_terminal<B: Backend>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<(), Box<dyn Error>>

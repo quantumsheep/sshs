@@ -25,7 +25,7 @@ struct Args {
     sort: bool,
 
     /// Exit after ending the SSH session
-    #[arg(long, default_value_t = false)]
+    #[arg(short, long, default_value_t = false)]
     exit: bool,
 }
 
@@ -37,6 +37,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         search_filter: args.search,
         sort_by_name: args.sort,
         display_proxy_command: args.proxy,
+        exit_after_ssh: args.exit,
     })?;
     app.start()?;
 
