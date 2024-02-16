@@ -88,8 +88,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/setup-buildx-action@v3
-
       - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
       - uses: Swatinem/rust-cache@v2
