@@ -6,6 +6,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 #[allow(clippy::wildcard_imports)]
 use ratatui::{prelude::*, widgets::*};
 use std::{cell::RefCell, error::Error, io, rc::Rc};
@@ -221,12 +222,15 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
 
     let search_value = app.search.value();
 
+    let matcher = SkimMatcherV2::default();
+
     let rows = app
         .hosts
         .iter()
         .filter(|host| {
             search_value.is_empty()
-                || (host.hostname.contains(search_value) || host.aliases.contains(search_value))
+                || matcher.fuzzy_match(&host.hostname, search_value).is_some()
+                || matcher.fuzzy_match(&host.aliases, search_value).is_some()
         })
         .map(|host| {
             [

@@ -10,6 +10,7 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "4.5.0", features = ["derive"] }
 crossterm = "0.27.0"
+fuzzy-matcher = "0.3.7"
 itertools = "0.12.1"
 ratatui = "0.26.1"
 shellexpand = "3.1.0"
