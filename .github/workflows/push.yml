@@ -125,6 +125,7 @@ jobs:
           if-no-files-found: error
           name: ${{ steps.set_filename.outputs.filename }}
           path: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}
+          compression-level: 0
 
   # nix:
   #   runs-on: ubuntu-latest
