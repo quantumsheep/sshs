@@ -25,8 +25,9 @@ pub struct AppConfig {
 
     pub search_filter: Option<String>,
     pub sort_by_name: bool,
-    pub display_proxy_command: bool,
+    pub show_proxy_command: bool,
 
+    pub ssh_pattern: Option<String>,
     pub exit_after_ssh: bool,
 }
 
@@ -120,7 +121,12 @@ impl App {
                             let host = &self.hosts[selected];
 
                             restore_terminal(terminal).expect("Failed to restore terminal");
-                            ssh::connect(host)?;
+
+                            if let Some(pattern) = &self.config.ssh_pattern {
+                                ssh::run_with_pattern(pattern, host)?;
+                            } else {
+                                ssh::connect(host)?;
+                            }
 
                             if self.config.exit_after_ssh {
                                 return Ok(());

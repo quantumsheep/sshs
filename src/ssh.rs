@@ -1,5 +1,7 @@
 use itertools::Itertools;
+use regex::Regex;
 use ssh2_config::{ParseRule, SshConfig};
+use std::collections::VecDeque;
 use std::error::Error;
 use std::fs::File;
 use std::{io::BufReader, process::Command};
@@ -23,6 +25,43 @@ pub fn connect(host: &Host) -> Result<(), Box<dyn Error>> {
         .arg(&host.port)
         .spawn()?
         .wait()?;
+
+    Ok(())
+}
+
+/// # Format
+/// - %h - Hostname
+/// - %u - User
+/// - %p - Port
+///
+/// Use %% to escape the % character.
+///
+/// # Errors
+///
+/// Will return `Err` if the command cannot be executed.
+pub fn run_with_pattern(pattern: &String, host: &Host) -> Result<(), Box<dyn Error>> {
+    let re = Regex::new(r"(?P<skip>%%)|(?P<h>%h)|(?P<u>%u)|(?P<p>%p)").unwrap();
+    let command = re.replace_all(pattern, |caps: &regex::Captures| {
+        if let Some(p) = caps.name("skip") {
+            p.as_str().to_string()
+        } else if caps.name("h").is_some() {
+            host.hostname.clone()
+        } else if caps.name("u").is_some() {
+            host.user.clone()
+        } else if caps.name("p").is_some() {
+            host.port.clone()
+        } else {
+            String::new()
+        }
+    });
+
+    let mut args = shlex::split(&command)
+        .ok_or(format!("Failed to parse command: {}", command))?
+        .into_iter()
+        .collect::<VecDeque<String>>();
+    let command = args.pop_front().ok_or("Failed to get command")?;
+
+    Command::new(command).args(args).spawn()?.wait()?;
 
     Ok(())
 }

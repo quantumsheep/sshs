@@ -13,8 +13,8 @@ struct Args {
     config: String,
 
     /// Shows ProxyCommand
-    #[arg(short, long, default_value_t = false)]
-    proxy: bool,
+    #[arg(long, default_value_t = false)]
+    show_proxy_command: bool,
 
     /// Host search filter
     #[arg(short, long)]
@@ -23,6 +23,9 @@ struct Args {
     /// Sort hosts by hostname
     #[arg(long, default_value_t = true)]
     sort: bool,
+
+    #[arg(short, long)]
+    pattern: Option<String>,
 
     /// Exit after ending the SSH session
     #[arg(short, long, default_value_t = false)]
@@ -36,7 +39,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         config_path: args.config,
         search_filter: args.search,
         sort_by_name: args.sort,
-        display_proxy_command: args.proxy,
+        show_proxy_command: args.show_proxy_command,
+        ssh_pattern: args.pattern,
         exit_after_ssh: args.exit,
     })?;
     app.start()?;
