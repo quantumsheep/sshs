@@ -77,11 +77,11 @@ jobs:
             runs-on: macos-latest
           - os: windows
             arch: "amd64"
-            rust-target: "x86_64-pc-windows-msvc"
+            rust-target: "x86_64-pc-windows-gnu"
             runs-on: windows-latest
           - os: windows
             arch: "arm64"
-            rust-target: "aarch64-pc-windows-msvc"
+            rust-target: "aarch64-pc-windows-gnu"
             runs-on: windows-latest
     runs-on: ${{ matrix.target.runs-on }}
     name: Build and save artifact
