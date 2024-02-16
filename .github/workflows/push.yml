@@ -57,6 +57,7 @@ jobs:
     needs:
       - clippy
     strategy:
+      fail-fast: false
       matrix:
         target:
           - os: linux
@@ -90,10 +91,12 @@ jobs:
 
       - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
+      - run: cargo install cross --git https://github.com/cross-rs/cross
+
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target.rust-target }}
+        run: cross build --release --target ${{ matrix.target.rust-target }}
 
       - name: Set .exe extension for Windows
         run: echo "EXTENSION=.exe" >> $GITHUB_ENV
