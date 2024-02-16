@@ -119,6 +119,7 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
+          if-no-files-found: error
           name: ${{ steps.set-filename.outputs.filename }}
           path: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set-extension.outputs.extension }}
 
