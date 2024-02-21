@@ -24,8 +24,11 @@ impl Host {
         self.entries.insert(entry.0, entry.1);
     }
 
-    pub(crate) fn extend(&mut self, host: &Host) {
+    pub(crate) fn extend_patterns(&mut self, host: &Host) {
         self.patterns.extend(host.patterns.clone());
+    }
+
+    pub(crate) fn extend_entries(&mut self, host: &Host) {
         self.entries.extend(host.entries.clone());
     }
 
@@ -108,7 +111,8 @@ impl HostVecExt for Vec<Host> {
                 }
 
                 let host = self[i].clone();
-                self[j].extend(&host);
+                self[j].extend_patterns(&host);
+                self[j].extend_entries(&host);
                 self.remove(i);
                 break;
             }

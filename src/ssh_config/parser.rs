@@ -96,7 +96,7 @@ impl Parser {
 
                     if hosts.is_empty() {
                         if !included_global_host.is_empty() {
-                            global_host.extend(&included_global_host);
+                            global_host.extend_entries(&included_global_host);
                         }
 
                         hosts.extend(included_hosts);
@@ -106,7 +106,7 @@ impl Parser {
                             return Err("Cannot include hosts inside a host block".into());
                         }
 
-                        hosts.last_mut().unwrap().extend(&included_global_host);
+                        hosts.last_mut().unwrap().extend_entries(&included_global_host);
                     }
 
                     continue;
