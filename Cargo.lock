@@ -542,18 +542,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
 
 [[package]]
-name = "ssh2-config"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98150bad1e8fe53df07f38b53364f4d34e84a6cc2ee9f933e43629571060af65"
-dependencies = [
- "bitflags 2.4.2",
- "dirs",
- "thiserror",
- "wildmatch",
-]
-
-[[package]]
 name = "sshs"
 version = "4.0.0"
 dependencies = [
@@ -565,7 +553,6 @@ dependencies = [
  "regex",
  "shellexpand",
  "shlex",
- "ssh2-config",
  "tui-input",
  "unicode-width",
 ]
@@ -711,12 +698,6 @@ name = "wasi"
 version = "0.11.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
-
-[[package]]
-name = "wildmatch"
-version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "495ec47bf3c1345005f40724f0269362c8556cbc43aed0526ed44cae1d35fceb"
 
 [[package]]
 name = "winapi"

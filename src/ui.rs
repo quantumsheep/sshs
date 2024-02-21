@@ -4,7 +4,10 @@ use crossterm::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
     },
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
 };
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 #[allow(clippy::wildcard_imports)]
@@ -118,7 +121,11 @@ impl App {
                         Up => self.previous(),
                         Enter => {
                             let selected = self.table_state.selected().unwrap_or(0);
-                            let host = &self.hosts[selected];
+                            if selected >= self.hosts.len() {
+                                continue;
+                            }
+
+                            let host: &ssh::Host = &self.hosts[selected];
 
                             restore_terminal(terminal).expect("Failed to restore terminal");
 
@@ -133,7 +140,7 @@ impl App {
                             }
 
                             setup_terminal(terminal).expect("Failed to setup terminal");
-                            terminal.borrow_mut().clear()?;
+                            // terminal.borrow_mut().clear()?;
                         }
                         _ => {
                             self.search.handle_event(&ev);
@@ -147,7 +154,7 @@ impl App {
     fn next(&mut self) {
         let i = match self.table_state.selected() {
             Some(i) => {
-                if i >= self.hosts.len() - 1 {
+                if self.hosts.is_empty() || i >= self.hosts.len() - 1 {
                     0
                 } else {
                     i + 1
@@ -161,7 +168,9 @@ impl App {
     fn previous(&mut self) {
         let i = match self.table_state.selected() {
             Some(i) => {
-                if i == 0 {
+                if self.hosts.is_empty() {
+                    0
+                } else if i == 0 {
                     self.hosts.len() - 1
                 } else {
                     i - 1
@@ -201,6 +210,7 @@ where
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
+        Clear(ClearType::All),
         Show,
         LeaveAlternateScreen,
         DisableMouseCapture
