@@ -82,5 +82,5 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
-          asset_name: ${{ steps.set_filename.outputs.filename }}
-          file: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}
+          asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
+          file: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256
