@@ -2,8 +2,7 @@ use itertools::Itertools;
 use regex::Regex;
 use std::collections::VecDeque;
 use std::error::Error;
-use std::fs::File;
-use std::{io::BufReader, process::Command};
+use std::process::Command;
 
 use crate::ssh_config;
 
@@ -88,10 +87,8 @@ pub fn parse_config(raw_path: &String) -> Result<Vec<Host>, Box<dyn Error>> {
         .ok_or("Failed to convert path to string")?
         .to_string();
 
-    let mut reader = BufReader::new(File::open(path)?);
-
     let hosts = ssh_config::Parser::new()
-        .parse(&mut reader)?
+        .parse_file(path)?
         .apply_patterns()
         .merge_same_hosts()
         .iter()

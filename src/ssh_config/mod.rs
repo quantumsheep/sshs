@@ -1,4 +1,7 @@
 use regex::Regex;
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
 use std::str::FromStr;
 use std::{collections::HashMap, error::Error, io::BufRead};
 use strum_macros;
@@ -207,6 +210,10 @@ impl Hosts {
         self.0.push(host);
     }
 
+    fn extend(&mut self, hosts: Hosts) {
+        self.0.extend(hosts.0);
+    }
+
     fn last_mut(&mut self) -> &mut Host {
         self.0.last_mut().unwrap()
     }
@@ -317,10 +324,30 @@ impl Parser {
         }
     }
 
+    pub fn parse_file<P>(&self, path: P) -> Result<Hosts, Box<dyn Error>>
+    where
+        P: AsRef<Path>,
+    {
+        let mut reader = BufReader::new(File::open(path)?);
+        self.parse(&mut reader)
+    }
+
     /// # Errors
     ///
     /// Will return `Err` if the SSH configuration cannot be parsed.
     pub fn parse(&self, reader: &mut impl BufRead) -> Result<Hosts, Box<dyn Error>> {
+        let (global_host, mut hosts) = self.parse_raw(reader)?;
+
+        if !global_host.is_empty() {
+            for host in hosts.iter_mut() {
+                host.extend_if_not_contained(&global_host);
+            }
+        }
+
+        Ok(hosts)
+    }
+
+    fn parse_raw(&self, reader: &mut impl BufRead) -> Result<(Host, Hosts), Box<dyn Error>> {
         let mut global_host = Host::new(Vec::new());
         let mut hosts = Hosts::new();
 
@@ -346,6 +373,40 @@ impl Parser {
 
                     continue;
                 }
+                EntryType::Include => {
+                    let mut include_path = shellexpand::tilde(&entry.1).to_string();
+
+                    if !include_path.starts_with('/') {
+                        let ssh_config_directory = shellexpand::tilde("~/.ssh").to_string();
+                        include_path = format!("{ssh_config_directory}/{include_path}");
+                    }
+
+                    // Canonicalize from ~/.ssh
+                    let path = std::fs::canonicalize(include_path)?
+                        .to_str()
+                        .ok_or("Failed to convert path to string")?
+                        .to_string();
+
+                    let mut file = BufReader::new(File::open(path)?);
+                    let (included_global_host, included_hosts) = self.parse_raw(&mut file)?;
+
+                    if hosts.is_empty() {
+                        if !included_global_host.is_empty() {
+                            global_host.extend(&included_global_host);
+                        }
+
+                        hosts.extend(included_hosts);
+                    } else {
+                        // Can't include hosts inside a host block
+                        if !included_hosts.is_empty() {
+                            return Err("Cannot include hosts inside a host block".into());
+                        }
+
+                        hosts.last_mut().extend(&included_global_host);
+                    }
+
+                    continue;
+                }
                 _ => {}
             }
 
@@ -356,13 +417,7 @@ impl Parser {
             }
         }
 
-        if !global_host.is_empty() {
-            for host in hosts.iter_mut() {
-                host.extend_if_not_contained(&global_host);
-            }
-        }
-
-        Ok(hosts)
+        Ok((global_host, hosts))
     }
 }
 
