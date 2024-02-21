@@ -1,8 +1,10 @@
+use anyhow::anyhow;
+use anyhow::Result;
 use std::fs::File;
+use std::io::BufRead;
 use std::io::BufReader;
 use std::path::Path;
 use std::str::FromStr;
-use std::{error::Error, io::BufRead};
 
 use super::host::Entry;
 use super::{EntryType, Host};
@@ -29,7 +31,7 @@ impl Parser {
     /// # Errors
     ///
     /// Will return `Err` if the SSH configuration cannot be parsed.
-    pub fn parse_file<P>(&self, path: P) -> Result<Vec<Host>, Box<dyn Error>>
+    pub fn parse_file<P>(&self, path: P) -> Result<Vec<Host>>
     where
         P: AsRef<Path>,
     {
@@ -40,7 +42,7 @@ impl Parser {
     /// # Errors
     ///
     /// Will return `Err` if the SSH configuration cannot be parsed.
-    pub fn parse(&self, reader: &mut impl BufRead) -> Result<Vec<Host>, Box<dyn Error>> {
+    pub fn parse(&self, reader: &mut impl BufRead) -> Result<Vec<Host>> {
         let (global_host, mut hosts) = self.parse_raw(reader)?;
 
         if !global_host.is_empty() {
@@ -52,7 +54,7 @@ impl Parser {
         Ok(hosts)
     }
 
-    fn parse_raw(&self, reader: &mut impl BufRead) -> Result<(Host, Vec<Host>), Box<dyn Error>> {
+    fn parse_raw(&self, reader: &mut impl BufRead) -> Result<(Host, Vec<Host>)> {
         let mut global_host = Host::new(Vec::new());
         let mut hosts = Vec::new();
 
@@ -69,7 +71,7 @@ impl Parser {
             match entry.0 {
                 EntryType::Unknown(_) => {
                     if !self.ignore_unknown_entries {
-                        return Err(format!("Unknown entry: {line}").into());
+                        return Err(anyhow!("Unknown entry: {line}"));
                     }
                 }
                 EntryType::Host => {
@@ -88,7 +90,7 @@ impl Parser {
 
                     let path = std::fs::canonicalize(include_path)?
                         .to_str()
-                        .ok_or("Failed to convert path to string")?
+                        .ok_or(anyhow!("Failed to convert path to string"))?
                         .to_string();
 
                     let mut file = BufReader::new(File::open(path)?);
@@ -103,10 +105,13 @@ impl Parser {
                     } else {
                         // Can't include hosts inside a host block
                         if !included_hosts.is_empty() {
-                            return Err("Cannot include hosts inside a host block".into());
+                            return Err(anyhow!("Cannot include hosts inside a host block"));
                         }
 
-                        hosts.last_mut().unwrap().extend_entries(&included_global_host);
+                        hosts
+                            .last_mut()
+                            .unwrap()
+                            .extend_entries(&included_global_host);
                     }
 
                     continue;
@@ -125,12 +130,12 @@ impl Parser {
     }
 }
 
-fn parse_line(line: &str) -> Result<Entry, Box<dyn Error>> {
+fn parse_line(line: &str) -> Result<Entry> {
     let (mut key, mut value) = line
         .trim()
         .split_once(' ')
         .map(|(k, v)| (k.trim_end(), v.trim_start()))
-        .ok_or(format!("Invalid line: {line}"))?;
+        .ok_or(anyhow!("Invalid line: {line}"))?;
 
     // Format can be key=value with whitespaces around the equal sign, strip the equal sign and whitespaces
     if key.ends_with('=') {

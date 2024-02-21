@@ -13,6 +13,7 @@ lto = true
 codegen-units = 1
 
 [dependencies]
+anyhow = "1.0.80"
 clap = { version = "4.5.0", features = ["derive"] }
 crossterm = "0.27.0"
 fuzzy-matcher = "0.3.7"

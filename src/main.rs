@@ -3,8 +3,8 @@ pub mod ssh;
 pub mod ssh_config;
 pub mod ui;
 
+use anyhow::Result;
 use clap::Parser;
-use std::error::Error;
 use ui::{App, AppConfig};
 
 #[derive(Parser, Debug)]
@@ -39,7 +39,7 @@ struct Args {
     exit: bool,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let args = Args::parse();
 
     let mut app = App::new(&AppConfig {

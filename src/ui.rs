@@ -1,3 +1,4 @@
+use anyhow::Result;
 use crossterm::{
     cursor::{Hide, Show},
     event::{
@@ -9,7 +10,7 @@ use crossterm::{
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 #[allow(clippy::wildcard_imports)]
 use ratatui::{prelude::*, widgets::*};
-use std::{cell::RefCell, error::Error, io, rc::Rc};
+use std::{cell::RefCell, io, rc::Rc};
 use style::palette::tailwind;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
@@ -47,7 +48,7 @@ impl App {
     /// # Errors
     ///
     /// Will return `Err` if the SSH configuration file cannot be parsed.
-    pub fn new(config: &AppConfig) -> Result<App, Box<dyn Error>> {
+    pub fn new(config: &AppConfig) -> Result<App> {
         let mut hosts = ssh::parse_config(&config.config_path)?;
         if config.sort_by_name {
             hosts.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -83,7 +84,7 @@ impl App {
     /// # Errors
     ///
     /// Will return `Err` if the terminal cannot be configured.
-    pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn start(&mut self) -> Result<()> {
         let stdout = io::stdout().lock();
         let backend = CrosstermBackend::new(stdout);
         let terminal = Rc::new(RefCell::new(Terminal::new(backend)?));
@@ -102,7 +103,7 @@ impl App {
         Ok(())
     }
 
-    fn run<B: Backend>(&mut self, terminal: &Rc<RefCell<Terminal<B>>>) -> Result<(), Box<dyn Error>>
+    fn run<B: Backend>(&mut self, terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
     where
         B: std::io::Write,
     {
@@ -276,7 +277,7 @@ impl App {
     }
 }
 
-fn setup_terminal<B: Backend>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<(), Box<dyn Error>>
+fn setup_terminal<B: Backend>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
 where
     B: std::io::Write,
 {
@@ -294,7 +295,7 @@ where
     Ok(())
 }
 
-fn restore_terminal<B: Backend>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<(), Box<dyn Error>>
+fn restore_terminal<B: Backend>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
 where
     B: std::io::Write,
 {
