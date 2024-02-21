@@ -324,6 +324,9 @@ impl Parser {
         }
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the SSH configuration cannot be parsed.
     pub fn parse_file<P>(&self, path: P) -> Result<Hosts, Box<dyn Error>>
     where
         P: AsRef<Path>,
