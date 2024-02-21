@@ -1,9 +1,13 @@
-use std::{collections::HashMap, error::Error, io::BufRead};
-
 use regex::Regex;
+use std::str::FromStr;
+use std::{collections::HashMap, error::Error, io::BufRead};
+use strum_macros;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+/// List from <https://man7.org/linux/man-pages/man5/ssh_config.5.html>
+#[derive(Debug, strum_macros::Display, strum_macros::EnumString, Eq, PartialEq, Hash, Clone)]
+#[strum(ascii_case_insensitive)]
 pub enum EntryType {
+    #[strum(disabled)]
     Unknown(String),
     Host,
     Match,
@@ -106,19 +110,6 @@ pub enum EntryType {
     VerifyHostKeyDNS,
     VisualHostKey,
     XAuthLocation,
-}
-
-impl EntryType {
-    fn from_str(s: &str) -> EntryType {
-        match s {
-            "Host" => EntryType::Host,
-            "HostName" => EntryType::Hostname,
-            "User" => EntryType::User,
-            "Port" => EntryType::Port,
-            "ForwardAgent" => EntryType::ForwardAgent,
-            _ => EntryType::Unknown(s.to_string()),
-        }
-    }
 }
 
 type Entry = (EntryType, String);
@@ -382,7 +373,10 @@ fn parse_line(line: &str) -> Result<Entry, Box<dyn Error>> {
         .map(|(k, v)| (k.trim_end(), v.trim_start()))
         .ok_or(format!("Invalid line: {line}"))?;
 
-    Ok((EntryType::from_str(key), value.to_string()))
+    Ok((
+        EntryType::from_str(key).unwrap_or(EntryType::Unknown(key.to_string())),
+        value.to_string(),
+    ))
 }
 
 fn parse_patterns(entry_value: &str) -> Vec<String> {

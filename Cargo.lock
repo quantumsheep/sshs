@@ -553,6 +553,8 @@ dependencies = [
  "regex",
  "shellexpand",
  "shlex",
+ "strum",
+ "strum_macros",
  "tui-input",
  "unicode-width",
 ]
