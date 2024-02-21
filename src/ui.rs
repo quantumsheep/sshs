@@ -4,10 +4,7 @@ use crossterm::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
     },
     execute,
-    terminal::{
-        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
-        LeaveAlternateScreen,
-    },
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 #[allow(clippy::wildcard_imports)]
@@ -302,6 +299,7 @@ where
     B: std::io::Write,
 {
     let mut terminal = terminal.borrow_mut();
+    terminal.clear()?;
 
     // restore terminal
     disable_raw_mode()?;
@@ -310,7 +308,6 @@ where
         Show,
         LeaveAlternateScreen,
         DisableMouseCapture,
-        Clear(ClearType::All),
     )?;
 
     Ok(())
