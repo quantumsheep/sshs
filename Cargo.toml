@@ -7,6 +7,11 @@ edition = "2021"
 name = "sshs"
 path = "src/main.rs"
 
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+
 [dependencies]
 clap = { version = "4.5.0", features = ["derive"] }
 crossterm = "0.27.0"
