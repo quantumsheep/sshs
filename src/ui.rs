@@ -18,7 +18,7 @@ use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
 use unicode_width::UnicodeWidthStr;
 
-use crate::ssh;
+use crate::{searchable::Searchable, ssh};
 
 const INFO_TEXT: &str = "(Esc) quit | (↑) move up | (↓) move down | (enter) select";
 
@@ -40,7 +40,7 @@ pub struct App {
     search: Input,
 
     table_state: TableState,
-    hosts: Vec<ssh::Host>,
+    hosts: Searchable<ssh::Host>,
     table_longest_item_lens: (u16, u16, u16, u16, u16),
 
     palette: tailwind::Palette,
@@ -58,16 +58,26 @@ impl App {
 
         let search_input = config.search_filter.clone().unwrap_or_default();
 
+        let matcher = SkimMatcherV2::default();
+
         Ok(App {
             config: config.clone(),
 
-            search: search_input.into(),
+            search: search_input.clone().into(),
 
             table_state: TableState::default().with_selected(0),
             table_longest_item_lens: constraint_len_calculator(&hosts),
             palette: tailwind::BLUE,
 
-            hosts,
+            hosts: Searchable::new(
+                hosts,
+                &search_input,
+                move |host: &&ssh::Host, search_value: &str| -> bool {
+                    search_value.is_empty()
+                        || matcher.fuzzy_match(&host.name, search_value).is_some()
+                        || matcher.fuzzy_match(&host.aliases, search_value).is_some()
+                },
+            ),
         })
     }
 
@@ -140,6 +150,15 @@ impl App {
                         }
                         _ => {
                             self.search.handle_event(&ev);
+                            self.hosts.search(self.search.value());
+
+                            let selected = self.table_state.selected().unwrap_or(0);
+                            if selected >= self.hosts.len() {
+                                self.table_state.select(Some(match self.hosts.len() {
+                                    0 => 0,
+                                    _ => self.hosts.len() - 1,
+                                }));
+                            }
                         }
                     }
                 }
@@ -258,31 +277,19 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         .style(header_style)
         .height(1);
 
-    let search_value = app.search.value();
-
-    let matcher = SkimMatcherV2::default();
-
-    let rows = app
-        .hosts
+    let rows = app.hosts.iter().map(|host| {
+        [
+            &host.name,
+            &host.aliases,
+            &host.user.as_ref().unwrap_or(&String::new()),
+            &host.destination,
+            &host.port.as_ref().unwrap_or(&String::new()),
+        ]
         .iter()
-        .filter(|host| {
-            search_value.is_empty()
-                || matcher.fuzzy_match(&host.name, search_value).is_some()
-                || matcher.fuzzy_match(&host.aliases, search_value).is_some()
-        })
-        .map(|host| {
-            [
-                &host.name,
-                &host.aliases,
-                &host.user.as_ref().unwrap_or(&String::new()),
-                &host.destination,
-                &host.port.as_ref().unwrap_or(&String::new()),
-            ]
-            .iter()
-            .copied()
-            .map(|content| Cell::from(Text::from(content.to_string())))
-            .collect::<Row>()
-        });
+        .copied()
+        .map(|content| Cell::from(Text::from(content.to_string())))
+        .collect::<Row>()
+    });
 
     let bar = " █ ";
     let t = Table::new(

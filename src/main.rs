@@ -1,3 +1,4 @@
+pub mod searchable;
 pub mod ssh;
 pub mod ssh_config;
 pub mod ui;
@@ -26,7 +27,11 @@ struct Args {
     sort: bool,
 
     /// Handlebars template of the command to execute
-    #[arg(short, long, default_value = "ssh {{#if user}}{{user}}@{{/if}}{{destination}}{{#if port}} -p {{port}}{{/if}}")]
+    #[arg(
+        short,
+        long,
+        default_value = "ssh {{#if user}}{{user}}@{{/if}}{{destination}}{{#if port}} -p {{port}}{{/if}}"
+    )]
     template: String,
 
     /// Exit after ending the SSH session
