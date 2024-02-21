@@ -327,7 +327,7 @@ impl Parser {
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
             line = line.trim().to_string();
-            if line.is_empty() {
+            if line.is_empty() || line.starts_with('#') {
                 continue;
             }
 
