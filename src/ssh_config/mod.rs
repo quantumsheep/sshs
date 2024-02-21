@@ -199,8 +199,13 @@ impl Host {
 }
 
 pub trait HostVecExt {
+    /// Merges the hosts with the same entries into one host.
     fn merge_same_hosts(&mut self) -> &mut Self;
+
+    /// Spreads the hosts with multiple patterns into multiple hosts with one pattern.
     fn spread(&mut self) -> &mut Self;
+
+    /// Apply patterns entries to non-pattern hosts and remove the pattern hosts.
     fn apply_patterns(&mut self) -> &mut Self;
 }
 
@@ -245,6 +250,9 @@ impl HostVecExt for Vec<Host> {
         self
     }
 
+    /// Apply patterns entries to non-pattern hosts and remove the pattern hosts.
+    ///
+    /// You might want to call [`HostVecExt::merge_same_hosts`] after this.
     fn apply_patterns(&mut self) -> &mut Self {
         let hosts = self.spread();
         let mut pattern_indexes = Vec::new();
