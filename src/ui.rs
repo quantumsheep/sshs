@@ -41,7 +41,7 @@ pub struct App {
 
     table_state: TableState,
     hosts: Searchable<ssh::Host>,
-    table_longest_item_lens: (u16, u16, u16, u16, u16),
+    table_columns_constraints: Vec<Constraint>,
 
     palette: tailwind::Palette,
 }
@@ -57,16 +57,15 @@ impl App {
         }
 
         let search_input = config.search_filter.clone().unwrap_or_default();
-
         let matcher = SkimMatcherV2::default();
 
-        Ok(App {
+        let mut app = App {
             config: config.clone(),
 
             search: search_input.clone().into(),
 
             table_state: TableState::default().with_selected(0),
-            table_longest_item_lens: constraint_len_calculator(&hosts),
+            table_columns_constraints: Vec::new(),
             palette: tailwind::BLUE,
 
             hosts: Searchable::new(
@@ -78,7 +77,10 @@ impl App {
                         || matcher.fuzzy_match(&host.aliases, search_value).is_some()
                 },
             ),
-        })
+        };
+        app.calculate_table_columns_constraints();
+
+        Ok(app)
     }
 
     /// # Errors
@@ -195,6 +197,86 @@ impl App {
         };
         self.table_state.select(Some(i));
     }
+
+    fn calculate_table_columns_constraints(&mut self) {
+        let mut lengths = Vec::new();
+
+        let name_len = self
+            .hosts
+            .iter()
+            .map(|d| d.name.as_str())
+            .map(UnicodeWidthStr::width)
+            .max()
+            .unwrap_or(0);
+        lengths.push(name_len);
+
+        let aliases_len = self
+            .hosts
+            .non_filtered_iter()
+            .map(|d| d.aliases.as_str())
+            .map(UnicodeWidthStr::width)
+            .max()
+            .unwrap_or(0);
+        lengths.push(aliases_len);
+
+        let user_len = self
+            .hosts
+            .non_filtered_iter()
+            .map(|d| match &d.user {
+                Some(user) => user.as_str(),
+                None => "",
+            })
+            .map(UnicodeWidthStr::width)
+            .max()
+            .unwrap_or(0);
+        lengths.push(user_len);
+
+        let destination_len = self
+            .hosts
+            .non_filtered_iter()
+            .map(|d| d.destination.as_str())
+            .map(UnicodeWidthStr::width)
+            .max()
+            .unwrap_or(0);
+        lengths.push(destination_len);
+
+        let port_len = self
+            .hosts
+            .non_filtered_iter()
+            .map(|d| match &d.port {
+                Some(port) => port.as_str(),
+                None => "",
+            })
+            .map(UnicodeWidthStr::width)
+            .max()
+            .unwrap_or(0);
+        lengths.push(port_len);
+
+        if self.config.show_proxy_command {
+            let proxy_len = self
+                .hosts
+                .non_filtered_iter()
+                .map(|d| match &d.proxy_command {
+                    Some(proxy) => proxy.as_str(),
+                    None => "",
+                })
+                .map(UnicodeWidthStr::width)
+                .max()
+                .unwrap_or(0);
+            lengths.push(proxy_len);
+        }
+
+        let mut new_constraints = vec![
+            // +1 for padding
+            Constraint::Length(u16::try_from(lengths[0]).unwrap_or_default() + 1),
+        ];
+        new_constraints.extend(
+            lengths
+                .iter()
+                .skip(1)
+                .map(|len| Constraint::Min(u16::try_from(*len).unwrap_or_default() + 1)),
+        );
+    }
 }
 
 fn setup_terminal<B: Backend>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<(), Box<dyn Error>>
@@ -269,7 +351,12 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
     let header_style = Style::default().fg(tailwind::CYAN.c500);
     let selected_style = Style::default().add_modifier(Modifier::REVERSED);
 
-    let header = ["Name", "Aliases", "User", "Destination", "Port"]
+    let mut header_names = vec!["Name", "Aliases", "User", "Destination", "Port"];
+    if app.config.show_proxy_command {
+        header_names.push("Proxy");
+    }
+
+    let header = header_names
         .iter()
         .copied()
         .map(Cell::from)
@@ -278,94 +365,42 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         .height(1);
 
     let rows = app.hosts.iter().map(|host| {
-        [
-            &host.name,
-            &host.aliases,
-            &host.user.as_ref().unwrap_or(&String::new()),
-            &host.destination,
-            &host.port.as_ref().unwrap_or(&String::new()),
-        ]
-        .iter()
-        .copied()
-        .map(|content| Cell::from(Text::from(content.to_string())))
-        .collect::<Row>()
+        let mut content = vec![
+            host.name.clone(),
+            host.aliases.clone(),
+            host.user.clone().unwrap_or_default(),
+            host.destination.clone(),
+            host.port.clone().unwrap_or_default(),
+        ];
+        if app.config.show_proxy_command {
+            content.push(host.proxy_command.clone().unwrap_or_default());
+        }
+
+        content
+            .iter()
+            .map(|content| Cell::from(Text::from(content.to_string())))
+            .collect::<Row>()
     });
 
     let bar = " █ ";
-    let t = Table::new(
-        rows,
-        [
-            // + 1 is for padding.
-            Constraint::Length(app.table_longest_item_lens.0 + 1),
-            Constraint::Min(app.table_longest_item_lens.1 + 1),
-            Constraint::Min(app.table_longest_item_lens.2 + 1),
-            Constraint::Min(app.table_longest_item_lens.3 + 1),
-            Constraint::Min(app.table_longest_item_lens.4 + 1),
-        ],
-    )
-    .header(header)
-    .highlight_style(selected_style)
-    .highlight_symbol(Text::from(vec![
-        "".into(),
-        bar.into(),
-        bar.into(),
-        "".into(),
-    ]))
-    .highlight_spacing(HighlightSpacing::Always)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::new().fg(app.palette.c400))
-            .border_type(BorderType::Rounded),
-    );
+    let t = Table::new(rows, app.table_columns_constraints.clone())
+        .header(header)
+        .highlight_style(selected_style)
+        .highlight_symbol(Text::from(vec![
+            "".into(),
+            bar.into(),
+            bar.into(),
+            "".into(),
+        ]))
+        .highlight_spacing(HighlightSpacing::Always)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::new().fg(app.palette.c400))
+                .border_type(BorderType::Rounded),
+        );
 
     f.render_stateful_widget(t, area, &mut app.table_state);
-}
-
-fn constraint_len_calculator(items: &[ssh::Host]) -> (u16, u16, u16, u16, u16) {
-    let name_len = items
-        .iter()
-        .map(|d| d.name.as_str())
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-    let aliases_len = items
-        .iter()
-        .map(|d| d.aliases.as_str())
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-    let user_len = items
-        .iter()
-        .map(|d| match &d.user {
-            Some(user) => user.as_str(),
-            None => "",
-        })
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-    let destination_len = items
-        .iter()
-        .map(|d| d.destination.as_str())
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-    let port_len = items
-        .iter()
-        .map(|d| match &d.port {
-            Some(port) => port.as_str(),
-            None => "",
-        })
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-    (
-        u16::try_from(name_len).unwrap_or_default(),
-        u16::try_from(aliases_len).unwrap_or_default(),
-        u16::try_from(user_len).unwrap_or_default(),
-        u16::try_from(destination_len).unwrap_or_default(),
-        u16::try_from(port_len).unwrap_or_default(),
-    )
 }
 
 fn render_footer(f: &mut Frame, app: &mut App, area: Rect) {

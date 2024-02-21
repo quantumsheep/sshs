@@ -53,6 +53,10 @@ where
         self.filtered.is_empty()
     }
 
+    pub fn non_filtered_iter(&self) -> std::slice::Iter<T> {
+        self.vec.iter()
+    }
+
     pub fn iter(&self) -> std::slice::Iter<T> {
         self.filtered.iter()
     }

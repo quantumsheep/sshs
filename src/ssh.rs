@@ -14,6 +14,7 @@ pub struct Host {
     pub user: Option<String>,
     pub destination: String,
     pub port: Option<String>,
+    pub proxy_command: Option<String>,
 }
 
 impl Host {
@@ -70,6 +71,7 @@ pub fn parse_config(raw_path: &String) -> Result<Vec<Host>, Box<dyn Error>> {
                 .get(&ssh_config::EntryType::Hostname)
                 .unwrap_or_default(),
             port: host.get(&ssh_config::EntryType::Port),
+            proxy_command: host.get(&ssh_config::EntryType::ProxyCommand),
         })
         .collect();
 
