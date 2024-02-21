@@ -367,11 +367,19 @@ impl Parser {
 }
 
 fn parse_line(line: &str) -> Result<Entry, Box<dyn Error>> {
-    let (key, value) = line
+    let (mut key, mut value) = line
         .trim()
         .split_once(' ')
         .map(|(k, v)| (k.trim_end(), v.trim_start()))
         .ok_or(format!("Invalid line: {line}"))?;
+
+    // Format can be key=value with whitespaces around the equal sign, strip the equal sign and whitespaces
+    if key.ends_with('=') {
+        key = key.trim_end_matches('=').trim_end();
+    }
+    if value.starts_with('=') {
+        value = value.trim_start_matches('=').trim_start();
+    }
 
     Ok((
         EntryType::from_str(key).unwrap_or(EntryType::Unknown(key.to_string())),
