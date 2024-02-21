@@ -78,9 +78,23 @@ Releases contains prebuilt binaries for Linux, macOS and Windows. You can downlo
 
 ### From sources
 
+Building sshs from sources requires [Rust](https://www.rust-lang.org/) compiler and [Cargo](https://doc.rust-lang.org/cargo/) to be installed. You can install them with [rustup](https://rustup.rs).
+
 ```bash
 cargo install --git https://github.com/quantumsheep/sshs
 ```
+
+Be sure to have `~/.cargo/bin` in your `PATH` environment variable.
+
+You can also clone the repository and build it manually:
+
+```bash
+git clone https://github.com/quantumsheep/sshs.git
+cd sshs
+cargo build --release
+```
+
+The binary will be located at `./target/release/sshs` once the build is complete.
 
 ## Troubleshooting
 
