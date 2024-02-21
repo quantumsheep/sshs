@@ -30,7 +30,7 @@ pub struct AppConfig {
     pub sort_by_name: bool,
     pub show_proxy_command: bool,
 
-    pub ssh_pattern: Option<String>,
+    pub command_template: String,
     pub exit_after_ssh: bool,
 }
 
@@ -53,7 +53,7 @@ impl App {
     pub fn new(config: &AppConfig) -> Result<App, Box<dyn Error>> {
         let mut hosts = ssh::parse_config(&config.config_path)?;
         if config.sort_by_name {
-            hosts.sort_by(|a, b| a.hostname.cmp(&b.hostname));
+            hosts.sort_by(|a, b| a.name.cmp(&b.name));
         }
 
         let search_input = config.search_filter.clone().unwrap_or_default();
@@ -129,11 +129,7 @@ impl App {
 
                             restore_terminal(terminal).expect("Failed to restore terminal");
 
-                            if let Some(pattern) = &self.config.ssh_pattern {
-                                ssh::run_with_pattern(pattern, host)?;
-                            } else {
-                                ssh::connect(host)?;
-                            }
+                            host.run_command_template(&self.config.command_template)?;
 
                             if self.config.exit_after_ssh {
                                 return Ok(());
@@ -254,7 +250,7 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
     let header_style = Style::default().fg(tailwind::CYAN.c500);
     let selected_style = Style::default().add_modifier(Modifier::REVERSED);
 
-    let header = ["Hostname", "Aliases", "User", "Target", "Port"]
+    let header = ["Name", "Aliases", "User", "Destination", "Port"]
         .iter()
         .copied()
         .map(Cell::from)
@@ -271,15 +267,15 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         .iter()
         .filter(|host| {
             search_value.is_empty()
-                || matcher.fuzzy_match(&host.hostname, search_value).is_some()
+                || matcher.fuzzy_match(&host.name, search_value).is_some()
                 || matcher.fuzzy_match(&host.aliases, search_value).is_some()
         })
         .map(|host| {
             [
-                &host.hostname,
+                &host.name,
                 &host.aliases,
                 &host.user.as_ref().unwrap_or(&String::new()),
-                &host.target,
+                &host.destination,
                 &host.port.as_ref().unwrap_or(&String::new()),
             ]
             .iter()
@@ -320,9 +316,9 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn constraint_len_calculator(items: &[ssh::Host]) -> (u16, u16, u16, u16, u16) {
-    let hostname_len = items
+    let name_len = items
         .iter()
-        .map(|d| d.hostname.as_str())
+        .map(|d| d.name.as_str())
         .map(UnicodeWidthStr::width)
         .max()
         .unwrap_or(0);
@@ -341,9 +337,9 @@ fn constraint_len_calculator(items: &[ssh::Host]) -> (u16, u16, u16, u16, u16) {
         .map(UnicodeWidthStr::width)
         .max()
         .unwrap_or(0);
-    let target_len = items
+    let destination_len = items
         .iter()
-        .map(|d| d.target.as_str())
+        .map(|d| d.destination.as_str())
         .map(UnicodeWidthStr::width)
         .max()
         .unwrap_or(0);
@@ -357,10 +353,10 @@ fn constraint_len_calculator(items: &[ssh::Host]) -> (u16, u16, u16, u16, u16) {
         .max()
         .unwrap_or(0);
     (
-        u16::try_from(hostname_len).unwrap_or_default(),
+        u16::try_from(name_len).unwrap_or_default(),
         u16::try_from(aliases_len).unwrap_or_default(),
         u16::try_from(user_len).unwrap_or_default(),
-        u16::try_from(target_len).unwrap_or_default(),
+        u16::try_from(destination_len).unwrap_or_default(),
         u16::try_from(port_len).unwrap_or_default(),
     )
 }

@@ -1,80 +1,45 @@
+use handlebars::Handlebars;
 use itertools::Itertools;
-use regex::Regex;
+use serde::Serialize;
 use std::collections::VecDeque;
 use std::error::Error;
 use std::process::Command;
 
 use crate::ssh_config::{self, HostVecExt};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Host {
-    pub hostname: String,
+    pub name: String,
     pub aliases: String,
     pub user: Option<String>,
-    pub target: String,
+    pub destination: String,
     pub port: Option<String>,
 }
 
-/// # Errors
-///
-/// Will return `Err` if the SSH command cannot be executed.
-pub fn connect(host: &Host) -> Result<(), Box<dyn Error>> {
-    let mut command = Command::new("ssh");
+impl Host {
+    /// Uses the provided Handlebars template to run a command.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if the command cannot be executed.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the regex cannot be compiled.
+    pub fn run_command_template(&self, pattern: &str) -> Result<(), Box<dyn Error>> {
+        let handlebars = Handlebars::new();
+        let command = handlebars.render_template(pattern, &self)?;
 
-    if let Some(user) = &host.user {
-        command.arg(format!("{}@{}", user, host.target));
-    } else {
-        command.arg(host.target.clone());
+        let mut args = shlex::split(&command)
+            .ok_or(format!("Failed to parse command: {command}"))?
+            .into_iter()
+            .collect::<VecDeque<String>>();
+        let command = args.pop_front().ok_or("Failed to get command")?;
+
+        Command::new(command).args(args).spawn()?.wait()?;
+
+        Ok(())
     }
-
-    if let Some(port) = &host.port {
-        command.arg("-p").arg(port);
-    }
-
-    command.spawn()?.wait()?;
-
-    Ok(())
-}
-
-/// # Format
-/// - %h - Hostname
-/// - %u - User
-/// - %p - Port
-///
-/// Use %% to escape the % character.
-///
-/// # Errors
-///
-/// Will return `Err` if the command cannot be executed.
-///
-/// # Panics
-///
-/// Will panic if the regex cannot be compiled.
-pub fn run_with_pattern(pattern: &str, host: &Host) -> Result<(), Box<dyn Error>> {
-    let re = Regex::new(r"(?P<skip>%%)|(?P<h>%h)|(?P<u>%u)|(?P<p>%p)").unwrap();
-    let command = re.replace_all(pattern, |caps: &regex::Captures| {
-        if let Some(p) = caps.name("skip") {
-            p.as_str().to_string()
-        } else if caps.name("h").is_some() {
-            host.hostname.clone()
-        } else if caps.name("u").is_some() {
-            host.user.clone().unwrap_or_default()
-        } else if caps.name("p").is_some() {
-            host.port.clone().unwrap_or_default()
-        } else {
-            String::new()
-        }
-    });
-
-    let mut args = shlex::split(&command)
-        .ok_or(format!("Failed to parse command: {command}"))?
-        .into_iter()
-        .collect::<VecDeque<String>>();
-    let command = args.pop_front().ok_or("Failed to get command")?;
-
-    Command::new(command).args(args).spawn()?.wait()?;
-
-    Ok(())
 }
 
 /// # Errors
@@ -94,14 +59,14 @@ pub fn parse_config(raw_path: &String) -> Result<Vec<Host>, Box<dyn Error>> {
         .iter()
         .filter(|host| host.get(&ssh_config::EntryType::Hostname).is_some())
         .map(|host| Host {
-            hostname: host
+            name: host
                 .get_patterns()
                 .first()
                 .unwrap_or(&String::new())
                 .clone(),
             aliases: host.get_patterns().iter().skip(1).join(", "),
             user: host.get(&ssh_config::EntryType::User),
-            target: host
+            destination: host
                 .get(&ssh_config::EntryType::Hostname)
                 .unwrap_or_default(),
             port: host.get(&ssh_config::EntryType::Port),
