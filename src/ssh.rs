@@ -29,15 +29,20 @@ impl Host {
     /// Will panic if the regex cannot be compiled.
     pub fn run_command_template(&self, pattern: &str) -> Result<(), Box<dyn Error>> {
         let handlebars = Handlebars::new();
-        let command = handlebars.render_template(pattern, &self)?;
+        let rendered_command = handlebars.render_template(pattern, &self)?;
 
-        let mut args = shlex::split(&command)
-            .ok_or(format!("Failed to parse command: {command}"))?
+        println!("Running command: {rendered_command}");
+
+        let mut args = shlex::split(&rendered_command)
+            .ok_or(format!("Failed to parse command: {rendered_command}"))?
             .into_iter()
             .collect::<VecDeque<String>>();
         let command = args.pop_front().ok_or("Failed to get command")?;
 
-        Command::new(command).args(args).spawn()?.wait()?;
+        let status = Command::new(command).args(args).spawn()?.wait()?;
+        if !status.success() {
+            std::process::exit(status.code().unwrap_or(1));
+        }
 
         Ok(())
     }
