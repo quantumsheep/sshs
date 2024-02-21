@@ -79,10 +79,7 @@ Releases contains prebuilt binaries for Linux, macOS and Windows. You can downlo
 ### From sources
 
 ```bash
-git clone https://github.com/quantumsheep/sshs.git
-cd sshs
-cargo build --release
-# mv ./target/release/sshs ~/.local/bin/
+cargo install --git https://github.com/quantumsheep/sshs
 ```
 
 ## Troubleshooting
