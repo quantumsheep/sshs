@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use std::error::Error;
 use std::process::Command;
 
-use crate::ssh_config;
+use crate::ssh_config::{self, HostVecExt};
 
 #[derive(Debug, Clone)]
 pub struct Host {

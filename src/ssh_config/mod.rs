@@ -198,49 +198,26 @@ impl Host {
     }
 }
 
+pub trait HostVecExt {
+    fn merge_same_hosts(&mut self) -> &mut Self;
+    fn spread(&mut self) -> &mut Self;
+    fn apply_patterns(&mut self) -> &mut Self;
+}
+
 #[derive(Debug, Clone)]
 pub struct Hosts(Vec<Host>);
 
-impl Hosts {
-    fn new() -> Hosts {
-        Hosts(Vec::new())
-    }
-
-    fn add(&mut self, host: Host) {
-        self.0.push(host);
-    }
-
-    fn extend(&mut self, hosts: Hosts) {
-        self.0.extend(hosts.0);
-    }
-
-    fn last_mut(&mut self) -> &mut Host {
-        self.0.last_mut().unwrap()
-    }
-
-    #[allow(clippy::must_use_candidate)]
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &Host> {
-        self.0.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Host> {
-        self.0.iter_mut()
-    }
-
-    pub fn merge_same_hosts(&mut self) -> &mut Self {
-        for i in (0..self.0.len()).rev() {
+impl HostVecExt for Vec<Host> {
+    fn merge_same_hosts(&mut self) -> &mut Self {
+        for i in (0..self.len()).rev() {
             for j in (0..i).rev() {
-                if self.0[i].entries != self.0[j].entries {
+                if self[i].entries != self[j].entries {
                     continue;
                 }
 
-                let host = self.0[i].clone();
-                self.0[j].extend(&host);
-                self.0.remove(i);
+                let host = self[i].clone();
+                self[j].extend(&host);
+                self.remove(i);
                 break;
             }
         }
@@ -248,10 +225,10 @@ impl Hosts {
         self
     }
 
-    pub fn spread(&mut self) -> &mut Self {
+    fn spread(&mut self) -> &mut Self {
         let mut hosts = Vec::new();
 
-        for host in &self.0 {
+        for host in self.iter_mut() {
             let patterns = host.get_patterns();
             if patterns.is_empty() {
                 hosts.push(host.clone());
@@ -268,37 +245,37 @@ impl Hosts {
         self
     }
 
-    pub fn apply_patterns(&mut self) -> &mut Self {
+    fn apply_patterns(&mut self) -> &mut Self {
         let hosts = self.spread();
         let mut pattern_indexes = Vec::new();
 
-        for i in 0..hosts.0.len() {
-            let matching_pattern_regexes = hosts.0[i].matching_pattern_regexes();
+        for i in 0..hosts.len() {
+            let matching_pattern_regexes = hosts[i].matching_pattern_regexes();
             if matching_pattern_regexes.is_empty() {
                 continue;
             }
 
             pattern_indexes.push(i);
 
-            for j in (i + 1)..hosts.0.len() {
-                if !hosts.0[j].matching_pattern_regexes().is_empty() {
+            for j in (i + 1)..hosts.len() {
+                if !hosts[j].matching_pattern_regexes().is_empty() {
                     continue;
                 }
 
                 for (regex, is_negated) in &matching_pattern_regexes {
-                    if regex.is_match(&hosts.0[j].patterns[0]) == *is_negated {
+                    if regex.is_match(&hosts[j].patterns[0]) == *is_negated {
                         continue;
                     }
 
-                    let host = hosts.0[i].clone();
-                    hosts.0[j].extend_if_not_contained(&host);
+                    let host = hosts[i].clone();
+                    hosts[j].extend_if_not_contained(&host);
                     break;
                 }
             }
         }
 
         for i in pattern_indexes.into_iter().rev() {
-            hosts.0.remove(i);
+            hosts.remove(i);
         }
 
         hosts
@@ -327,7 +304,7 @@ impl Parser {
     /// # Errors
     ///
     /// Will return `Err` if the SSH configuration cannot be parsed.
-    pub fn parse_file<P>(&self, path: P) -> Result<Hosts, Box<dyn Error>>
+    pub fn parse_file<P>(&self, path: P) -> Result<Vec<Host>, Box<dyn Error>>
     where
         P: AsRef<Path>,
     {
@@ -338,11 +315,11 @@ impl Parser {
     /// # Errors
     ///
     /// Will return `Err` if the SSH configuration cannot be parsed.
-    pub fn parse(&self, reader: &mut impl BufRead) -> Result<Hosts, Box<dyn Error>> {
+    pub fn parse(&self, reader: &mut impl BufRead) -> Result<Vec<Host>, Box<dyn Error>> {
         let (global_host, mut hosts) = self.parse_raw(reader)?;
 
         if !global_host.is_empty() {
-            for host in hosts.iter_mut() {
+            for host in &mut hosts {
                 host.extend_if_not_contained(&global_host);
             }
         }
@@ -350,9 +327,9 @@ impl Parser {
         Ok(hosts)
     }
 
-    fn parse_raw(&self, reader: &mut impl BufRead) -> Result<(Host, Hosts), Box<dyn Error>> {
+    fn parse_raw(&self, reader: &mut impl BufRead) -> Result<(Host, Vec<Host>), Box<dyn Error>> {
         let mut global_host = Host::new(Vec::new());
-        let mut hosts = Hosts::new();
+        let mut hosts = Vec::new();
 
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
@@ -372,7 +349,7 @@ impl Parser {
                 }
                 EntryType::Host => {
                     let patterns = parse_patterns(&entry.1);
-                    hosts.add(Host::new(patterns));
+                    hosts.push(Host::new(patterns));
 
                     continue;
                 }
@@ -404,7 +381,7 @@ impl Parser {
                             return Err("Cannot include hosts inside a host block".into());
                         }
 
-                        hosts.last_mut().extend(&included_global_host);
+                        hosts.last_mut().unwrap().extend(&included_global_host);
                     }
 
                     continue;
@@ -415,7 +392,7 @@ impl Parser {
             if hosts.is_empty() {
                 global_host.update(entry);
             } else {
-                hosts.last_mut().update(entry);
+                hosts.last_mut().unwrap().update(entry);
             }
         }
 
@@ -485,37 +462,37 @@ mod tests {
 
     #[test]
     fn test_apply_patterns() {
-        let mut hosts = Hosts::new();
+        let mut hosts = Vec::new();
 
         let mut host = Host::new(vec!["*".to_string()]);
         host.update((EntryType::Hostname, "example.com".to_string()));
-        hosts.add(host);
+        hosts.push(host);
 
         let mut host = Host::new(vec!["!example.com".to_string()]);
         host.update((EntryType::User, "hello".to_string()));
-        hosts.add(host);
+        hosts.push(host);
 
         let mut host = Host::new(vec!["example.com".to_string()]);
         host.update((EntryType::Port, "22".to_string()));
-        hosts.add(host);
+        hosts.push(host);
 
         let mut host = Host::new(vec!["hello.com".to_string()]);
         host.update((EntryType::Port, "22".to_string()));
-        hosts.add(host);
+        hosts.push(host);
 
         let hosts = hosts.apply_patterns();
 
-        assert_eq!(hosts.0.len(), 2);
+        assert_eq!(hosts.len(), 2);
 
-        assert_eq!(hosts.0[0].patterns[0], "example.com");
-        assert_eq!(hosts.0[0].entries.len(), 2);
-        assert_eq!(hosts.0[0].entries[&EntryType::Hostname], "example.com");
-        assert_eq!(hosts.0[0].entries[&EntryType::Port], "22");
+        assert_eq!(hosts[0].patterns[0], "example.com");
+        assert_eq!(hosts[0].entries.len(), 2);
+        assert_eq!(hosts[0].entries[&EntryType::Hostname], "example.com");
+        assert_eq!(hosts[0].entries[&EntryType::Port], "22");
 
-        assert_eq!(hosts.0[1].patterns[0], "hello.com");
-        assert_eq!(hosts.0[1].entries.len(), 3);
-        assert_eq!(hosts.0[1].entries[&EntryType::Hostname], "example.com");
-        assert_eq!(hosts.0[1].entries[&EntryType::User], "hello");
-        assert_eq!(hosts.0[1].entries[&EntryType::Port], "22");
+        assert_eq!(hosts[1].patterns[0], "hello.com");
+        assert_eq!(hosts[1].entries.len(), 3);
+        assert_eq!(hosts[1].entries[&EntryType::Hostname], "example.com");
+        assert_eq!(hosts[1].entries[&EntryType::User], "hello");
+        assert_eq!(hosts[1].entries[&EntryType::Port], "22");
     }
 }
