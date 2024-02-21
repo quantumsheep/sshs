@@ -210,10 +210,10 @@ where
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
-        Clear(ClearType::All),
         Show,
         LeaveAlternateScreen,
-        DisableMouseCapture
+        DisableMouseCapture,
+        Clear(ClearType::All),
     )?;
 
     Ok(())
@@ -278,9 +278,9 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
             [
                 &host.hostname,
                 &host.aliases,
-                &host.user,
+                &host.user.as_ref().unwrap_or(&String::new()),
                 &host.target,
-                &host.port,
+                &host.port.as_ref().unwrap_or(&String::new()),
             ]
             .iter()
             .copied()
@@ -334,7 +334,10 @@ fn constraint_len_calculator(items: &[ssh::Host]) -> (u16, u16, u16, u16, u16) {
         .unwrap_or(0);
     let user_len = items
         .iter()
-        .map(|d| d.user.as_str())
+        .map(|d| match &d.user {
+            Some(user) => user.as_str(),
+            None => "",
+        })
         .map(UnicodeWidthStr::width)
         .max()
         .unwrap_or(0);
@@ -346,11 +349,13 @@ fn constraint_len_calculator(items: &[ssh::Host]) -> (u16, u16, u16, u16, u16) {
         .unwrap_or(0);
     let port_len = items
         .iter()
-        .map(|d| d.port.as_str())
+        .map(|d| match &d.port {
+            Some(port) => port.as_str(),
+            None => "",
+        })
         .map(UnicodeWidthStr::width)
         .max()
         .unwrap_or(0);
-
     (
         u16::try_from(hostname_len).unwrap_or_default(),
         u16::try_from(aliases_len).unwrap_or_default(),

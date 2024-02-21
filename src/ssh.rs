@@ -11,21 +11,28 @@ use crate::ssh_config;
 pub struct Host {
     pub hostname: String,
     pub aliases: String,
-    pub user: String,
+    pub user: Option<String>,
     pub target: String,
-    pub port: String,
+    pub port: Option<String>,
 }
 
 /// # Errors
 ///
 /// Will return `Err` if the SSH command cannot be executed.
 pub fn connect(host: &Host) -> Result<(), Box<dyn Error>> {
-    Command::new("ssh")
-        .arg(format!("{}@{}", host.user, host.target))
-        .arg("-p")
-        .arg(&host.port)
-        .spawn()?
-        .wait()?;
+    let mut command = Command::new("ssh");
+
+    if let Some(user) = &host.user {
+        command.arg(format!("{}@{}", user, host.target));
+    } else {
+        command.arg(host.target.clone());
+    }
+
+    if let Some(port) = &host.port {
+        command.arg("-p").arg(port);
+    }
+
+    command.spawn()?.wait()?;
 
     Ok(())
 }
@@ -52,9 +59,9 @@ pub fn run_with_pattern(pattern: &str, host: &Host) -> Result<(), Box<dyn Error>
         } else if caps.name("h").is_some() {
             host.hostname.clone()
         } else if caps.name("u").is_some() {
-            host.user.clone()
+            host.user.clone().unwrap_or_default()
         } else if caps.name("p").is_some() {
-            host.port.clone()
+            host.port.clone().unwrap_or_default()
         } else {
             String::new()
         }
@@ -96,11 +103,11 @@ pub fn parse_config(raw_path: &String) -> Result<Vec<Host>, Box<dyn Error>> {
                 .unwrap_or(&String::new())
                 .clone(),
             aliases: host.get_patterns().iter().skip(1).join(", "),
-            user: host.get(&ssh_config::EntryType::User).unwrap_or_default(),
+            user: host.get(&ssh_config::EntryType::User),
             target: host
                 .get(&ssh_config::EntryType::Hostname)
                 .unwrap_or_default(),
-            port: host.get(&ssh_config::EntryType::Port).unwrap_or_default(),
+            port: host.get(&ssh_config::EntryType::Port),
         })
         .collect();
 
