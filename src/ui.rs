@@ -50,7 +50,7 @@ impl App {
     pub fn new(config: &AppConfig) -> Result<App, Box<dyn Error>> {
         let mut hosts = ssh::parse_config(&config.config_path)?;
         if config.sort_by_name {
-            hosts.sort_by(|a, b| a.name.cmp(&b.name));
+            hosts.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         }
 
         let search_input = config.search_filter.clone().unwrap_or_default();
