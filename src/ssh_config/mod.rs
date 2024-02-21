@@ -381,7 +381,6 @@ impl Parser {
                         include_path = format!("{ssh_config_directory}/{include_path}");
                     }
 
-                    // Canonicalize from ~/.ssh
                     let path = std::fs::canonicalize(include_path)?
                         .to_str()
                         .ok_or("Failed to convert path to string")?
