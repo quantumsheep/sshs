@@ -1,4 +1,5 @@
 pub mod ssh;
+pub mod ssh_config;
 pub mod ui;
 
 use clap::Parser;

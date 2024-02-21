@@ -1,30 +1,37 @@
 use itertools::Itertools;
 use regex::Regex;
-use ssh2_config::{ParseRule, SshConfig};
 use std::collections::VecDeque;
 use std::error::Error;
-use std::fs::File;
-use std::{io::BufReader, process::Command};
+use std::process::Command;
+
+use crate::ssh_config::{self, HostVecExt};
 
 #[derive(Debug, Clone)]
 pub struct Host {
     pub hostname: String,
     pub aliases: String,
-    pub user: String,
+    pub user: Option<String>,
     pub target: String,
-    pub port: String,
+    pub port: Option<String>,
 }
 
 /// # Errors
 ///
 /// Will return `Err` if the SSH command cannot be executed.
 pub fn connect(host: &Host) -> Result<(), Box<dyn Error>> {
-    Command::new("ssh")
-        .arg(format!("{}@{}", host.user, host.target))
-        .arg("-p")
-        .arg(&host.port)
-        .spawn()?
-        .wait()?;
+    let mut command = Command::new("ssh");
+
+    if let Some(user) = &host.user {
+        command.arg(format!("{}@{}", user, host.target));
+    } else {
+        command.arg(host.target.clone());
+    }
+
+    if let Some(port) = &host.port {
+        command.arg("-p").arg(port);
+    }
+
+    command.spawn()?.wait()?;
 
     Ok(())
 }
@@ -39,9 +46,9 @@ pub fn connect(host: &Host) -> Result<(), Box<dyn Error>> {
 /// # Errors
 ///
 /// Will return `Err` if the command cannot be executed.
-/// 
+///
 /// # Panics
-/// 
+///
 /// Will panic if the regex cannot be compiled.
 pub fn run_with_pattern(pattern: &str, host: &Host) -> Result<(), Box<dyn Error>> {
     let re = Regex::new(r"(?P<skip>%%)|(?P<h>%h)|(?P<u>%u)|(?P<p>%p)").unwrap();
@@ -51,9 +58,9 @@ pub fn run_with_pattern(pattern: &str, host: &Host) -> Result<(), Box<dyn Error>
         } else if caps.name("h").is_some() {
             host.hostname.clone()
         } else if caps.name("u").is_some() {
-            host.user.clone()
+            host.user.clone().unwrap_or_default()
         } else if caps.name("p").is_some() {
-            host.port.clone()
+            host.port.clone().unwrap_or_default()
         } else {
             String::new()
         }
@@ -80,22 +87,24 @@ pub fn parse_config(raw_path: &String) -> Result<Vec<Host>, Box<dyn Error>> {
         .ok_or("Failed to convert path to string")?
         .to_string();
 
-    let mut reader = BufReader::new(File::open(path)?);
-    let config = SshConfig::default().parse(&mut reader, ParseRule::STRICT)?;
-
-    let hosts = config
-        .get_hosts()
+    let hosts = ssh_config::Parser::new()
+        .parse_file(path)?
+        .apply_patterns()
+        .merge_same_hosts()
         .iter()
-        .filter(|host| host.params.host_name.is_some())
+        .filter(|host| host.get(&ssh_config::EntryType::Hostname).is_some())
         .map(|host| Host {
-            hostname: host.pattern[0].pattern.clone(),
-            aliases: host.pattern[1..]
-                .iter()
-                .map(|p| p.pattern.clone())
-                .join(", "),
-            user: host.params.user.clone().unwrap_or_default(),
-            target: host.params.host_name.clone().unwrap_or_default(),
-            port: host.params.port.unwrap_or(22).to_string(),
+            hostname: host
+                .get_patterns()
+                .first()
+                .unwrap_or(&String::new())
+                .clone(),
+            aliases: host.get_patterns().iter().skip(1).join(", "),
+            user: host.get(&ssh_config::EntryType::User),
+            target: host
+                .get(&ssh_config::EntryType::Hostname)
+                .unwrap_or_default(),
+            port: host.get(&ssh_config::EntryType::Port),
         })
         .collect();
 
