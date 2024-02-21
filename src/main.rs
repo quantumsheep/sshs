@@ -25,8 +25,9 @@ struct Args {
     #[arg(long, default_value_t = true)]
     sort: bool,
 
-    #[arg(short, long)]
-    pattern: Option<String>,
+    /// Handlebars template of the command to execute
+    #[arg(short, long, default_value = "ssh {{#if user}}{{user}}@{{/if}}{{destination}}{{#if port}} -p {{port}}{{/if}}")]
+    template: String,
 
     /// Exit after ending the SSH session
     #[arg(short, long, default_value_t = false)]
@@ -41,7 +42,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         search_filter: args.search,
         sort_by_name: args.sort,
         show_proxy_command: args.show_proxy_command,
-        ssh_pattern: args.pattern,
+        command_template: args.template,
         exit_after_ssh: args.exit,
     })?;
     app.start()?;
