@@ -82,6 +82,7 @@ jobs:
       - name: Compute checksums
         run: Get-FileHash -Algorithm SHA256 -Path "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}" | Out-File -FilePath "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256"
         if: ${{ matrix.target.os == 'windows' }}
+        shell: pwsh
 
       - uses: svenstaro/upload-release-action@v2
         with:
