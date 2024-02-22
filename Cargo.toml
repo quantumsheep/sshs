@@ -17,6 +17,7 @@ anyhow = "1.0.80"
 clap = { version = "4.5.0", features = ["derive"] }
 crossterm = "0.27.0"
 fuzzy-matcher = "0.3.7"
+glob = "0.3.1"
 handlebars = "5.1.0"
 itertools = "0.12.1"
 ratatui = "0.26.1"

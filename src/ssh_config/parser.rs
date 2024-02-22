@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use anyhow::Result;
+use glob::glob;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -91,30 +92,32 @@ impl Parser {
                         include_path = format!("{ssh_config_directory}/{include_path}");
                     }
 
-                    let path = std::fs::canonicalize(include_path)?
-                        .to_str()
-                        .ok_or(anyhow!("Failed to convert path to string"))?
-                        .to_string();
+                    for path in glob(&include_path)? {
+                        let path = match path {
+                            Ok(path) => path,
+                            Err(e) => return Err(anyhow!("Failed to glob path: {e}")),
+                        };
 
-                    let mut file = BufReader::new(File::open(path)?);
-                    let (included_global_host, included_hosts) = self.parse_raw(&mut file)?;
+                        let mut file = BufReader::new(File::open(path)?);
+                        let (included_global_host, included_hosts) = self.parse_raw(&mut file)?;
 
-                    if is_in_host_block {
-                        // Can't include hosts inside a host block
-                        if !included_hosts.is_empty() {
-                            return Err(anyhow!("Cannot include hosts inside a host block"));
+                        if is_in_host_block {
+                            // Can't include hosts inside a host block
+                            if !included_hosts.is_empty() {
+                                return Err(anyhow!("Cannot include hosts inside a host block"));
+                            }
+
+                            hosts
+                                .last_mut()
+                                .unwrap()
+                                .extend_entries(&included_global_host);
+                        } else {
+                            if !included_global_host.is_empty() {
+                                global_host.extend_entries(&included_global_host);
+                            }
+
+                            hosts.extend(included_hosts);
                         }
-
-                        hosts
-                            .last_mut()
-                            .unwrap()
-                            .extend_entries(&included_global_host);
-                    } else {
-                        if !included_global_host.is_empty() {
-                            global_host.extend_entries(&included_global_host);
-                        }
-
-                        hosts.extend(included_hosts);
                     }
 
                     continue;
