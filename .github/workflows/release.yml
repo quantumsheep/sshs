@@ -68,15 +68,20 @@ jobs:
         id: set_filename
         run: echo "filename=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ steps.set_extension.outputs.extension }}" >> $GITHUB_OUTPUT
 
-      - name: Compute checksums
-        run: shasum --algorithm 256 "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}" > "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256"
-
       - uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ steps.set_filename.outputs.filename }}
           file: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}
+
+      - name: Compute checksums
+        run: shasum --algorithm 256 "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}" > "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256"
+        if: ${{ matrix.target.os != 'windows' }}
+
+      - name: Compute checksums
+        run: Get-FileHash -Algorithm SHA256 -Path "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}" | Out-File -FilePath "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256"
+        if: ${{ matrix.target.os == 'windows' }}
 
       - uses: svenstaro/upload-release-action@v2
         with:
