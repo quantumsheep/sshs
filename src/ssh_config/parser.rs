@@ -62,6 +62,7 @@ impl Parser {
         while reader.read_line(&mut line)? > 0 {
             line = line.trim().to_string();
             if line.is_empty() || line.starts_with('#') {
+                line.clear();
                 continue;
             }
 
