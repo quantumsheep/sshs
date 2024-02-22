@@ -56,6 +56,7 @@ impl Parser {
 
     fn parse_raw(&self, reader: &mut impl BufRead) -> Result<(Host, Vec<Host>)> {
         let mut global_host = Host::new(Vec::new());
+        let mut is_in_host_block = false;
         let mut hosts = Vec::new();
 
         let mut line = String::new();
@@ -78,6 +79,7 @@ impl Parser {
                 EntryType::Host => {
                     let patterns = parse_patterns(&entry.1);
                     hosts.push(Host::new(patterns));
+                    is_in_host_block = true;
 
                     continue;
                 }
@@ -97,13 +99,7 @@ impl Parser {
                     let mut file = BufReader::new(File::open(path)?);
                     let (included_global_host, included_hosts) = self.parse_raw(&mut file)?;
 
-                    if hosts.is_empty() {
-                        if !included_global_host.is_empty() {
-                            global_host.extend_entries(&included_global_host);
-                        }
-
-                        hosts.extend(included_hosts);
-                    } else {
+                    if is_in_host_block {
                         // Can't include hosts inside a host block
                         if !included_hosts.is_empty() {
                             return Err(anyhow!("Cannot include hosts inside a host block"));
@@ -113,6 +109,12 @@ impl Parser {
                             .last_mut()
                             .unwrap()
                             .extend_entries(&included_global_host);
+                    } else {
+                        if !included_global_host.is_empty() {
+                            global_host.extend_entries(&included_global_host);
+                        }
+
+                        hosts.extend(included_hosts);
                     }
 
                     continue;
@@ -120,10 +122,10 @@ impl Parser {
                 _ => {}
             }
 
-            if hosts.is_empty() {
-                global_host.update(entry);
-            } else {
+            if is_in_host_block {
                 hosts.last_mut().unwrap().update(entry);
+            } else {
+                global_host.update(entry);
             }
         }
 
