@@ -139,7 +139,7 @@ impl Parser {
 fn parse_line(line: &str) -> Result<Entry> {
     let (mut key, mut value) = line
         .trim()
-        .split_once(' ')
+        .split_once([' ', '\t', '='])
         .map(|(k, v)| (k.trim_end(), v.trim_start()))
         .ok_or(anyhow!("Invalid line: {line}"))?;
 
