@@ -156,7 +156,11 @@ impl HostVecExt for Vec<Host> {
 
             pattern_indexes.push(i);
 
-            for j in (i + 1)..hosts.len() {
+            for j in 0..hosts.len() {
+                if i == j {
+                    continue;
+                }
+
                 if !hosts[j].matching_pattern_regexes().is_empty() {
                     continue;
                 }
