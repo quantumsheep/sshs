@@ -10,7 +10,12 @@ use crossterm::{
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 #[allow(clippy::wildcard_imports)]
 use ratatui::{prelude::*, widgets::*};
-use std::{cell::RefCell, io, rc::Rc};
+use std::{
+    cell::RefCell,
+    cmp::{max, min},
+    io,
+    rc::Rc,
+};
 use style::palette::tailwind;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
@@ -129,6 +134,20 @@ impl App {
                         Esc => return Ok(()),
                         Down => self.next(),
                         Up => self.previous(),
+                        Home => self.table_state.select(Some(0)),
+                        End => self.table_state.select(Some(self.hosts.len() - 1)),
+                        PageDown => {
+                            let i = self.table_state.selected().unwrap_or(0);
+                            let target = min(i.saturating_add(21), self.hosts.len() - 1);
+
+                            self.table_state.select(Some(target));
+                        }
+                        PageUp => {
+                            let i = self.table_state.selected().unwrap_or(0);
+                            let target = max(i.saturating_sub(21), 0);
+
+                            self.table_state.select(Some(target));
+                        }
                         Enter => {
                             let selected = self.table_state.selected().unwrap_or(0);
                             if selected >= self.hosts.len() {
