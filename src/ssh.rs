@@ -61,9 +61,9 @@ pub fn parse_config(raw_path: &String) -> Result<Vec<Host>> {
     let hosts = ssh_config::Parser::new()
         .parse_file(path)?
         .apply_patterns()
+        .apply_name_to_empty_hostname()
         .merge_same_hosts()
         .iter()
-        .filter(|host| host.get(&ssh_config::EntryType::Hostname).is_some())
         .map(|host| Host {
             name: host
                 .get_patterns()

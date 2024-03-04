@@ -92,6 +92,9 @@ impl Host {
 
 #[allow(clippy::module_name_repetitions)]
 pub trait HostVecExt {
+    /// Apply the name entry to the hostname entry if the hostname entry is empty.
+    fn apply_name_to_empty_hostname(&mut self) -> &mut Self;
+
     /// Merges the hosts with the same entries into one host.
     fn merge_same_hosts(&mut self) -> &mut Self;
 
@@ -103,6 +106,17 @@ pub trait HostVecExt {
 }
 
 impl HostVecExt for Vec<Host> {
+    fn apply_name_to_empty_hostname(&mut self) -> &mut Self {
+        for host in self.iter_mut() {
+            if host.get(&EntryType::Hostname).is_none() {
+                let name = host.patterns.first().unwrap().clone();
+                host.update((EntryType::Hostname, name.clone()));
+            }
+        }
+
+        self
+    }
+
     fn merge_same_hosts(&mut self) -> &mut Self {
         for i in (0..self.len()).rev() {
             for j in (0..i).rev() {
