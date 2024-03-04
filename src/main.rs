@@ -30,7 +30,7 @@ struct Args {
     #[arg(
         short,
         long,
-        default_value = "ssh \"{{{name}}}\"{{#if port}} -p {{port}}{{/if}}"
+        default_value = "ssh \"{{{name}}}\""
     )]
     template: String,
 
