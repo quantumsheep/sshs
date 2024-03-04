@@ -110,7 +110,7 @@ impl HostVecExt for Vec<Host> {
         for host in self.iter_mut() {
             if host.get(&EntryType::Hostname).is_none() {
                 let name = host.patterns.first().unwrap().clone();
-                host.update((EntryType::Hostname, name.clone()));
+                host.update((EntryType::Hostname, name));
             }
         }
 
