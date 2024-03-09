@@ -1,5 +1,3 @@
-use anyhow::anyhow;
-use anyhow::Result;
 use glob::glob;
 use std::fs::File;
 use std::io::BufRead;
@@ -8,6 +6,10 @@ use std::path::Path;
 use std::str::FromStr;
 
 use super::host::Entry;
+use super::parser_error::InvalidIncludeError;
+use super::parser_error::InvalidIncludeErrorDetails;
+use super::parser_error::ParseError;
+use super::parser_error::UnknownEntryError;
 use super::{EntryType, Host};
 
 #[derive(Debug)]
@@ -32,7 +34,7 @@ impl Parser {
     /// # Errors
     ///
     /// Will return `Err` if the SSH configuration cannot be parsed.
-    pub fn parse_file<P>(&self, path: P) -> Result<Vec<Host>>
+    pub fn parse_file<P>(&self, path: P) -> Result<Vec<Host>, ParseError>
     where
         P: AsRef<Path>,
     {
@@ -43,7 +45,7 @@ impl Parser {
     /// # Errors
     ///
     /// Will return `Err` if the SSH configuration cannot be parsed.
-    pub fn parse(&self, reader: &mut impl BufRead) -> Result<Vec<Host>> {
+    pub fn parse(&self, reader: &mut impl BufRead) -> Result<Vec<Host>, ParseError> {
         let (global_host, mut hosts) = self.parse_raw(reader)?;
 
         if !global_host.is_empty() {
@@ -55,7 +57,7 @@ impl Parser {
         Ok(hosts)
     }
 
-    fn parse_raw(&self, reader: &mut impl BufRead) -> Result<(Host, Vec<Host>)> {
+    fn parse_raw(&self, reader: &mut impl BufRead) -> Result<(Host, Vec<Host>), ParseError> {
         let mut global_host = Host::new(Vec::new());
         let mut is_in_host_block = false;
         let mut hosts = Vec::new();
@@ -74,7 +76,11 @@ impl Parser {
             match entry.0 {
                 EntryType::Unknown(_) => {
                     if !self.ignore_unknown_entries {
-                        return Err(anyhow!("Unknown entry: {line}"));
+                        return Err(UnknownEntryError {
+                            line,
+                            entry: entry.0.to_string(),
+                        }
+                        .into());
                     }
                 }
                 EntryType::Host => {
@@ -92,10 +98,27 @@ impl Parser {
                         include_path = format!("{ssh_config_directory}/{include_path}");
                     }
 
-                    for path in glob(&include_path)? {
+                    let paths = match glob(&include_path) {
+                        Ok(paths) => paths,
+                        Err(e) => {
+                            return Err(InvalidIncludeError {
+                                line,
+                                details: InvalidIncludeErrorDetails::Pattern(e),
+                            }
+                            .into())
+                        }
+                    };
+
+                    for path in paths {
                         let path = match path {
                             Ok(path) => path,
-                            Err(e) => return Err(anyhow!("Failed to glob path: {e}")),
+                            Err(e) => {
+                                return Err(InvalidIncludeError {
+                                    line,
+                                    details: InvalidIncludeErrorDetails::Glob(e),
+                                }
+                                .into())
+                            }
                         };
 
                         let mut file = BufReader::new(File::open(path)?);
@@ -104,7 +127,11 @@ impl Parser {
                         if is_in_host_block {
                             // Can't include hosts inside a host block
                             if !included_hosts.is_empty() {
-                                return Err(anyhow!("Cannot include hosts inside a host block"));
+                                return Err(InvalidIncludeError {
+                                    line,
+                                    details: InvalidIncludeErrorDetails::HostsInsideHostBlock,
+                                }
+                                .into());
                             }
 
                             hosts
@@ -136,12 +163,12 @@ impl Parser {
     }
 }
 
-fn parse_line(line: &str) -> Result<Entry> {
+fn parse_line(line: &str) -> Result<Entry, ParseError> {
     let (mut key, mut value) = line
         .trim()
         .split_once([' ', '\t', '='])
         .map(|(k, v)| (k.trim_end(), v.trim_start()))
-        .ok_or(anyhow!("Invalid line: {line}"))?;
+        .ok_or(ParseError::UnparseableLine(line.to_string()))?;
 
     // Format can be key=value with whitespaces around the equal sign, strip the equal sign and whitespaces
     if key.ends_with('=') {

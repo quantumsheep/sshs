@@ -27,7 +27,7 @@ const INFO_TEXT: &str = "(Esc) quit | (↑) move up | (↓) move down | (enter) 
 
 #[derive(Clone)]
 pub struct AppConfig {
-    pub config_path: String,
+    pub config_paths: Vec<String>,
 
     pub search_filter: Option<String>,
     pub sort_by_name: bool,
@@ -54,7 +54,28 @@ impl App {
     ///
     /// Will return `Err` if the SSH configuration file cannot be parsed.
     pub fn new(config: &AppConfig) -> Result<App> {
-        let mut hosts = ssh::parse_config(&config.config_path)?;
+        let mut hosts = Vec::new();
+
+        for path in &config.config_paths {
+            let parsed_hosts = match ssh::parse_config(path) {
+                Ok(hosts) => hosts,
+                Err(err) => {
+                    if path == "/etc/ssh/ssh_config" {
+                        if let ssh::ParseConfigError::Io(io_err) = &err {
+                            // Ignore missing system-wide SSH configuration file
+                            if io_err.kind() == std::io::ErrorKind::NotFound {
+                                continue;
+                            }
+                        }
+                    }
+
+                    anyhow::bail!("Failed to parse SSH configuration file: {err:?}");
+                }
+            };
+
+            hosts.extend(parsed_hosts);
+        }
+
         if config.sort_by_name {
             hosts.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         }

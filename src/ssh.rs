@@ -1,11 +1,11 @@
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use handlebars::Handlebars;
 use itertools::Itertools;
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::process::Command;
 
-use crate::ssh_config::{self, HostVecExt};
+use crate::ssh_config::{self, parser_error::ParseError, HostVecExt};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Host {
@@ -27,7 +27,7 @@ impl Host {
     /// # Panics
     ///
     /// Will panic if the regex cannot be compiled.
-    pub fn run_command_template(&self, pattern: &str) -> Result<()> {
+    pub fn run_command_template(&self, pattern: &str) -> anyhow::Result<()> {
         let handlebars = Handlebars::new();
         let rendered_command = handlebars.render_template(pattern, &self)?;
 
@@ -48,15 +48,30 @@ impl Host {
     }
 }
 
+#[derive(Debug)]
+pub enum ParseConfigError {
+    Io(std::io::Error),
+    SshConfig(ParseError),
+}
+
+impl From<std::io::Error> for ParseConfigError {
+    fn from(e: std::io::Error) -> Self {
+        ParseConfigError::Io(e)
+    }
+}
+
+impl From<ParseError> for ParseConfigError {
+    fn from(e: ParseError) -> Self {
+        ParseConfigError::SshConfig(e)
+    }
+}
+
 /// # Errors
 ///
 /// Will return `Err` if the SSH configuration file cannot be parsed.
-pub fn parse_config(raw_path: &String) -> Result<Vec<Host>> {
-    let mut path = shellexpand::tilde(&raw_path).to_string();
-    path = std::fs::canonicalize(path)?
-        .to_str()
-        .ok_or(anyhow!("Failed to convert path to string"))?
-        .to_string();
+pub fn parse_config(raw_path: &String) -> Result<Vec<Host>, ParseConfigError> {
+    let normalized_path = shellexpand::tilde(&raw_path).to_string();
+    let path = std::fs::canonicalize(normalized_path)?;
 
     let hosts = ssh_config::Parser::new()
         .parse_file(path)?

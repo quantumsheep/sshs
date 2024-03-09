@@ -11,8 +11,16 @@ use ui::{App, AppConfig};
 #[command(version, about, long_about = None)]
 struct Args {
     /// Path to the SSH configuration file
-    #[arg(short, long, default_value = "~/.ssh/config")]
-    config: String,
+    #[arg(
+        short,
+        long,
+        num_args = 1..,
+        default_values_t = [
+            "/etc/ssh/ssh_config".to_string(),
+            "~/.ssh/config".to_string(),
+        ],
+    )]
+    config: Vec<String>,
 
     /// Shows ProxyCommand
     #[arg(long, default_value_t = false)]
@@ -27,11 +35,7 @@ struct Args {
     sort: bool,
 
     /// Handlebars template of the command to execute
-    #[arg(
-        short,
-        long,
-        default_value = "ssh \"{{{name}}}\""
-    )]
+    #[arg(short, long, default_value = "ssh \"{{{name}}}\"")]
     template: String,
 
     /// Exit after ending the SSH session
@@ -43,7 +47,7 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let mut app = App::new(&AppConfig {
-        config_path: args.config,
+        config_paths: args.config,
         search_filter: args.search,
         sort_by_name: args.sort,
         show_proxy_command: args.show_proxy_command,
