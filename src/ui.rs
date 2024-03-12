@@ -181,12 +181,11 @@ impl App {
 
                             host.run_command_template(&self.config.command_template)?;
 
+                            setup_terminal(terminal).expect("Failed to setup terminal");
+
                             if self.config.exit_after_ssh {
                                 return Ok(());
                             }
-
-                            setup_terminal(terminal).expect("Failed to setup terminal");
-                            // terminal.borrow_mut().clear()?;
                         }
                         _ => {
                             self.search.handle_event(&ev);
