@@ -35,7 +35,11 @@ struct Args {
     sort: bool,
 
     /// Handlebars template of the command to execute
-    #[arg(short, long, default_value = "ssh \"{{{name}}}\"")]
+    #[arg(
+        short,
+        long,
+        default_value = "ssh \"{{{name}}}\" -F \"{{{config_file}}}\""
+    )]
     template: String,
 
     /// Exit after ending the SSH session

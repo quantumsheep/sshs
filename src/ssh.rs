@@ -4,6 +4,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::process::Command;
+use tempfile::NamedTempFile;
 
 use crate::ssh_config::{self, parser_error::ParseError, HostVecExt};
 
@@ -27,9 +28,26 @@ impl Host {
     /// # Panics
     ///
     /// Will panic if the regex cannot be compiled.
-    pub fn run_command_template(&self, pattern: &str) -> anyhow::Result<()> {
+    pub fn run_command_template(
+        &self,
+        pattern: &str,
+        config_paths: &[String],
+    ) -> anyhow::Result<()> {
         let handlebars = Handlebars::new();
-        let rendered_command = handlebars.render_template(pattern, &self)?;
+
+        let temp_file = (config_paths.len() >= 2)
+            .then(|| single_config_file(config_paths))
+            .transpose()?;
+
+        let mut template_data = serde_json::to_value(self)?;
+
+        // If there are multiple config files, use the temporary file, otherwise use the first one
+        template_data["config_file"] = temp_file
+            .as_ref()
+            .map_or(&config_paths[0] as &str, |f| f.path().to_str().unwrap())
+            .into();
+
+        let rendered_command = handlebars.render_template(pattern, &template_data)?;
 
         println!("Running command: {rendered_command}");
 
@@ -40,12 +58,29 @@ impl Host {
         let command = args.pop_front().ok_or(anyhow!("Failed to get command"))?;
 
         let status = Command::new(command).args(args).spawn()?.wait()?;
+        drop(temp_file);
+
         if !status.success() {
             std::process::exit(status.code().unwrap_or(1));
         }
 
         Ok(())
     }
+}
+
+fn single_config_file(config_paths: &[String]) -> anyhow::Result<NamedTempFile> {
+    let temp_file = NamedTempFile::with_prefix("sshs-")?;
+
+    // Include all config files
+    let includes = config_paths
+        .iter()
+        .map(|path| format!("Include {path}"))
+        .join("\n");
+
+    // Write to temporary file
+    std::fs::write(temp_file.path(), includes)?;
+
+    Ok(temp_file)
 }
 
 #[derive(Debug)]
