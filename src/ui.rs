@@ -179,7 +179,10 @@ impl App {
 
                             restore_terminal(terminal).expect("Failed to restore terminal");
 
-                            host.run_command_template(&self.config.command_template)?;
+                            host.run_command_template(
+                                &self.config.command_template,
+                                &self.config.config_paths,
+                            )?;
 
                             setup_terminal(terminal).expect("Failed to setup terminal");
 

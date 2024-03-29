@@ -2,8 +2,10 @@ use anyhow::anyhow;
 use handlebars::Handlebars;
 use itertools::Itertools;
 use serde::Serialize;
+use serde_json::json;
 use std::collections::VecDeque;
 use std::process::Command;
+use tempfile::NamedTempFile;
 
 use crate::ssh_config::{self, parser_error::ParseError, HostVecExt};
 
@@ -27,9 +29,29 @@ impl Host {
     /// # Panics
     ///
     /// Will panic if the regex cannot be compiled.
-    pub fn run_command_template(&self, pattern: &str) -> anyhow::Result<()> {
+    pub fn run_command_template<'a>(
+        &self,
+        pattern: &str,
+        config_paths: &Vec<String>,
+    ) -> anyhow::Result<()> {
         let handlebars = Handlebars::new();
-        let rendered_command = handlebars.render_template(pattern, &self)?;
+
+        let mut temp_file = None;
+
+        let mut template_data = json!(&self);
+        template_data["config_file"] = match config_paths.len() {
+            1 => json!(config_paths[0]),
+            _ => {
+                let new_temp_file = single_config_file(config_paths)?;
+                let temp_file_path = new_temp_file.path().to_str().unwrap().to_string();
+
+                temp_file = Some(new_temp_file);
+
+                json!(temp_file_path)
+            }
+        };
+
+        let rendered_command = handlebars.render_template(pattern, &template_data)?;
 
         println!("Running command: {rendered_command}");
 
@@ -40,12 +62,29 @@ impl Host {
         let command = args.pop_front().ok_or(anyhow!("Failed to get command"))?;
 
         let status = Command::new(command).args(args).spawn()?.wait()?;
+        drop(temp_file);
+
         if !status.success() {
             std::process::exit(status.code().unwrap_or(1));
         }
 
         Ok(())
     }
+}
+
+fn single_config_file(config_paths: &Vec<String>) -> anyhow::Result<NamedTempFile> {
+    let temp_file = NamedTempFile::with_prefix("sshs-")?;
+
+    // Include all config files
+    let includes = config_paths
+        .iter()
+        .map(|path| format!("Include {}", path))
+        .join("\n");
+
+    // Write to temporary file
+    std::fs::write(temp_file.path(), includes)?;
+
+    Ok(temp_file)
 }
 
 #[derive(Debug)]
