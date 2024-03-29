@@ -35,19 +35,17 @@ impl Host {
     ) -> anyhow::Result<()> {
         let handlebars = Handlebars::new();
 
-        let mut temp_file = None;
+        let temp_file = (config_paths.len() >= 2)
+            .then(|| single_config_file(config_paths))
+            .transpose()?;
 
         let mut template_data = serde_json::to_value(self)?;
-        template_data["config_file"] = if config_paths.len() == 1 {
-            serde_json::to_value(&config_paths[0])?
-        } else {
-            let new_temp_file = single_config_file(config_paths)?;
-            let temp_file_path = new_temp_file.path().to_str().unwrap().to_string();
 
-            temp_file = Some(new_temp_file);
-
-            serde_json::to_value(temp_file_path)?
-        };
+        // If there are multiple config files, use the temporary file, otherwise use the first one
+        template_data["config_file"] = temp_file
+            .as_ref()
+            .map_or(&config_paths[0] as &str, |f| f.path().to_str().unwrap())
+            .into();
 
         let rendered_command = handlebars.render_template(pattern, &template_data)?;
 
