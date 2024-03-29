@@ -29,26 +29,25 @@ impl Host {
     /// # Panics
     ///
     /// Will panic if the regex cannot be compiled.
-    pub fn run_command_template<'a>(
+    pub fn run_command_template(
         &self,
         pattern: &str,
-        config_paths: &Vec<String>,
+        config_paths: &[String],
     ) -> anyhow::Result<()> {
         let handlebars = Handlebars::new();
 
         let mut temp_file = None;
 
         let mut template_data = json!(&self);
-        template_data["config_file"] = match config_paths.len() {
-            1 => json!(config_paths[0]),
-            _ => {
-                let new_temp_file = single_config_file(config_paths)?;
-                let temp_file_path = new_temp_file.path().to_str().unwrap().to_string();
+        template_data["config_file"] = if config_paths.len() == 1 {
+            json!(config_paths[0])
+        } else {
+            let new_temp_file = single_config_file(config_paths)?;
+            let temp_file_path = new_temp_file.path().to_str().unwrap().to_string();
 
-                temp_file = Some(new_temp_file);
+            temp_file = Some(new_temp_file);
 
-                json!(temp_file_path)
-            }
+            json!(temp_file_path)
         };
 
         let rendered_command = handlebars.render_template(pattern, &template_data)?;
@@ -72,13 +71,13 @@ impl Host {
     }
 }
 
-fn single_config_file(config_paths: &Vec<String>) -> anyhow::Result<NamedTempFile> {
+fn single_config_file(config_paths: &[String]) -> anyhow::Result<NamedTempFile> {
     let temp_file = NamedTempFile::with_prefix("sshs-")?;
 
     // Include all config files
     let includes = config_paths
         .iter()
-        .map(|path| format!("Include {}", path))
+        .map(|path| format!("Include {path}"))
         .join("\n");
 
     // Write to temporary file
