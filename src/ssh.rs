@@ -2,7 +2,6 @@ use anyhow::anyhow;
 use handlebars::Handlebars;
 use itertools::Itertools;
 use serde::Serialize;
-use serde_json::json;
 use std::collections::VecDeque;
 use std::process::Command;
 use tempfile::NamedTempFile;
@@ -38,16 +37,16 @@ impl Host {
 
         let mut temp_file = None;
 
-        let mut template_data = json!(&self);
+        let mut template_data = serde_json::to_value(self)?;
         template_data["config_file"] = if config_paths.len() == 1 {
-            json!(config_paths[0])
+            serde_json::to_value(&config_paths[0])?
         } else {
             let new_temp_file = single_config_file(config_paths)?;
             let temp_file_path = new_temp_file.path().to_str().unwrap().to_string();
 
             temp_file = Some(new_temp_file);
 
-            json!(temp_file_path)
+            serde_json::to_value(temp_file_path)?
         };
 
         let rendered_command = handlebars.render_template(pattern, &template_data)?;
