@@ -98,6 +98,9 @@ impl App {
                 move |host: &&ssh::Host, search_value: &str| -> bool {
                     search_value.is_empty()
                         || matcher.fuzzy_match(&host.name, search_value).is_some()
+                        || matcher
+                            .fuzzy_match(&host.destination, search_value)
+                            .is_some()
                         || matcher.fuzzy_match(&host.aliases, search_value).is_some()
                 },
             ),
