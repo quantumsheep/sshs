@@ -31,7 +31,7 @@ where
 
     pub fn search(&mut self, value: &str) {
         if value.is_empty() {
-            self.filtered = self.vec.clone();
+            self.filtered.clone_from(&self.vec);
             return;
         }
 

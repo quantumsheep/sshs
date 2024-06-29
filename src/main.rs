@@ -22,7 +22,7 @@ struct Args {
     )]
     config: Vec<String>,
 
-    /// Shows ProxyCommand
+    /// Shows `ProxyCommand`
     #[arg(long, default_value_t = false)]
     show_proxy_command: bool,
 

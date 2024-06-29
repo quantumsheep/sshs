@@ -132,9 +132,9 @@ impl App {
         Ok(())
     }
 
-    fn run<B: Backend>(&mut self, terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
+    fn run<B>(&mut self, terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
     where
-        B: std::io::Write,
+        B: Backend + std::io::Write,
     {
         loop {
             terminal.borrow_mut().draw(|f| ui(f, self))?;
@@ -319,9 +319,9 @@ impl App {
     }
 }
 
-fn setup_terminal<B: Backend>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
+fn setup_terminal<B>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
 where
-    B: std::io::Write,
+    B: Backend + std::io::Write,
 {
     let mut terminal = terminal.borrow_mut();
 
@@ -337,9 +337,9 @@ where
     Ok(())
 }
 
-fn restore_terminal<B: Backend>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
+fn restore_terminal<B>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
 where
-    B: std::io::Write,
+    B: Backend + std::io::Write,
 {
     let mut terminal = terminal.borrow_mut();
     terminal.clear()?;
