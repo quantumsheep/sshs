@@ -119,14 +119,14 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ steps.set_filename.outputs.filename }}
-          file: target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}_amd64.deb
+          file: target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}-1_amd64.deb
 
       - name: Compute checksums
-        run: shasum --algorithm 256 "target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}_amd64.deb" > "target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}_amd64.deb.sha256"
+        run: shasum --algorithm 256 "target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}-1_amd64.deb" > "target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}-1_amd64.deb.sha256"
 
       - uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
-          file: target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}_amd64.deb.sha256
+          file: target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}-1_amd64.deb.sha256
