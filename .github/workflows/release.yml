@@ -90,3 +90,43 @@ jobs:
           tag: ${{ github.ref }}
           asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
           file: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Package and upload artifact
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: rustup toolchain install stable --profile minimal --target x86_64-unknown-linux-gnu --no-self-update
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+
+      - name: Build deb package
+        run: cargo deb --target x86_64-unknown-linux-gnu
+
+      - name: Set deb filename
+        id: set_filename
+        run: echo "filename=sshs-${{ github.ref }}_amd64.deb" >> $GITHUB_OUTPUT
+
+      - uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          asset_name: ${{ steps.set_filename.outputs.filename }}
+          file: target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}_amd64.deb
+
+      - name: Compute checksums
+        run: shasum --algorithm 256 "target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}_amd64.deb" > "target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}_amd64.deb.sha256"
+
+      - uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
+          file: target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}_amd64.deb.sha256
