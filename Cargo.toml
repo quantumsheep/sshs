@@ -2,6 +2,8 @@
 name = "sshs"
 version = "4.3.0"
 edition = "2021"
+description = "Terminal user interface for SSH"
+license = "MIT"
 
 [[bin]]
 name = "sshs"
