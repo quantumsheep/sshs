@@ -2,7 +2,8 @@ use anyhow::Result;
 use crossterm::{
     cursor::{Hide, Show},
     event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+        KeyModifiers,
     },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -47,6 +48,13 @@ pub struct App {
     table_columns_constraints: Vec<Constraint>,
 
     palette: tailwind::Palette,
+}
+
+#[derive(PartialEq)]
+enum AppKeyAction {
+    Ok,
+    Stop,
+    Continue,
 }
 
 impl App {
@@ -143,68 +151,107 @@ impl App {
 
             if let Event::Key(key) = ev {
                 if key.kind == KeyEventKind::Press {
-                    #[allow(clippy::enum_glob_use)]
-                    use KeyCode::*;
-
-                    if key.modifiers.contains(KeyModifiers::CONTROL) {
-                        #[allow(clippy::single_match)]
-                        match key.code {
-                            Char('c') => return Ok(()),
-                            _ => {}
-                        }
-                    }
-
-                    match key.code {
-                        Esc => return Ok(()),
-                        Down => self.next(),
-                        Up => self.previous(),
-                        Home => self.table_state.select(Some(0)),
-                        End => self.table_state.select(Some(self.hosts.len() - 1)),
-                        PageDown => {
-                            let i = self.table_state.selected().unwrap_or(0);
-                            let target = min(i.saturating_add(21), self.hosts.len() - 1);
-
-                            self.table_state.select(Some(target));
-                        }
-                        PageUp => {
-                            let i = self.table_state.selected().unwrap_or(0);
-                            let target = max(i.saturating_sub(21), 0);
-
-                            self.table_state.select(Some(target));
-                        }
-                        Enter => {
-                            let selected = self.table_state.selected().unwrap_or(0);
-                            if selected >= self.hosts.len() {
-                                continue;
-                            }
-
-                            let host: &ssh::Host = &self.hosts[selected];
-
-                            restore_terminal(terminal).expect("Failed to restore terminal");
-
-                            host.run_command_template(&self.config.command_template)?;
-
-                            setup_terminal(terminal).expect("Failed to setup terminal");
-
-                            if self.config.exit_after_ssh {
-                                return Ok(());
-                            }
-                        }
-                        _ => {
-                            self.search.handle_event(&ev);
-                            self.hosts.search(self.search.value());
-
-                            let selected = self.table_state.selected().unwrap_or(0);
-                            if selected >= self.hosts.len() {
-                                self.table_state.select(Some(match self.hosts.len() {
-                                    0 => 0,
-                                    _ => self.hosts.len() - 1,
-                                }));
-                            }
-                        }
+                    let action = self.on_key_press(terminal, key)?;
+                    match action {
+                        AppKeyAction::Ok => continue,
+                        AppKeyAction::Stop => break,
+                        AppKeyAction::Continue => {}
                     }
                 }
+
+                self.search.handle_event(&ev);
+                self.hosts.search(self.search.value());
+
+                let selected = self.table_state.selected().unwrap_or(0);
+                if selected >= self.hosts.len() {
+                    self.table_state.select(Some(match self.hosts.len() {
+                        0 => 0,
+                        _ => self.hosts.len() - 1,
+                    }));
+                }
             }
+        }
+
+        Ok(())
+    }
+
+    fn on_key_press<B>(
+        &mut self,
+        terminal: &Rc<RefCell<Terminal<B>>>,
+        key: KeyEvent,
+    ) -> Result<AppKeyAction>
+    where
+        B: Backend + std::io::Write,
+    {
+        #[allow(clippy::enum_glob_use)]
+        use KeyCode::*;
+
+        let is_ctrl_pressed = key.modifiers.contains(KeyModifiers::CONTROL);
+
+        if is_ctrl_pressed {
+            let action = self.on_key_press_ctrl(key);
+            if action != AppKeyAction::Continue {
+                return Ok(action);
+            }
+        }
+
+        match key.code {
+            Esc => return Ok(AppKeyAction::Stop),
+            Down => self.next(),
+            Up => self.previous(),
+            Home => self.table_state.select(Some(0)),
+            End => self.table_state.select(Some(self.hosts.len() - 1)),
+            PageDown => {
+                let i = self.table_state.selected().unwrap_or(0);
+                let target = min(i.saturating_add(21), self.hosts.len() - 1);
+
+                self.table_state.select(Some(target));
+            }
+            PageUp => {
+                let i = self.table_state.selected().unwrap_or(0);
+                let target = max(i.saturating_sub(21), 0);
+
+                self.table_state.select(Some(target));
+            }
+            Enter => {
+                let selected = self.table_state.selected().unwrap_or(0);
+                if selected >= self.hosts.len() {
+                    return Ok(AppKeyAction::Ok);
+                }
+
+                let host: &ssh::Host = &self.hosts[selected];
+
+                restore_terminal(terminal).expect("Failed to restore terminal");
+
+                host.run_command_template(&self.config.command_template)?;
+
+                setup_terminal(terminal).expect("Failed to setup terminal");
+
+                if self.config.exit_after_ssh {
+                    return Ok(AppKeyAction::Stop);
+                }
+            }
+            _ => return Ok(AppKeyAction::Continue),
+        }
+
+        Ok(AppKeyAction::Ok)
+    }
+
+    fn on_key_press_ctrl(&mut self, key: KeyEvent) -> AppKeyAction {
+        #[allow(clippy::enum_glob_use)]
+        use KeyCode::*;
+
+        match key.code {
+            Char('c') => AppKeyAction::Stop,
+            Char('j') => {
+                self.next();
+                AppKeyAction::Ok
+            }
+            Char('k') => {
+                self.previous();
+                AppKeyAction::Ok
+            }
+            _ => AppKeyAction::Continue,
         }
     }
 
