@@ -112,16 +112,19 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - uses: Swatinem/rust-cache@v2
-
       - name: Install cargo-deb
         run: cargo install cargo-deb
 
-      - name: Build deb package
-        run: cargo deb --target ${{ matrix.target.rust-target }} --output "target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb"
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: robinraju/release-downloader@v1.11
+        with:
+          tag: ${{ github.ref_name }}
+          fileName: sshs-linux-${{ matrix.target.arch }}
+          out-file-path: target/${{ matrix.target.rust-target }}/release
+
+      - name: Create Debian package
+        run: cargo deb --no-build --target ${{ matrix.target.rust-target }} --output "target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb"
 
       - name: Set deb filename
         id: set_filename
