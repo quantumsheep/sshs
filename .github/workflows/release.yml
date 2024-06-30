@@ -116,25 +116,25 @@ jobs:
         run: cargo install cargo-deb
 
       - name: Build deb package
-        run: cargo deb --target ${{ matrix.target.rust-target }}
+        run: cargo deb --target ${{ matrix.target.rust-target }} --output "target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb"
 
       - name: Set deb filename
         id: set_filename
-        run: echo "filename=sshs-${{ github.ref }}_${{ matrix.target.arch }}.deb" >> $GITHUB_OUTPUT
+        run: echo "filename=sshs-linux-${{ matrix.target.arch }}.deb" >> $GITHUB_OUTPUT
 
       - uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ steps.set_filename.outputs.filename }}
-          file: target/${{ matrix.target.rust-target }}/debian/sshs_${{ github.ref }}-1_${{ matrix.target.arch }}.deb
+          file: target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb
 
       - name: Compute checksums
-        run: shasum --algorithm 256 "target/${{ matrix.target.rust-target }}/debian/sshs_${{ github.ref }}-1_${{ matrix.target.arch }}.deb" > "target/${{ matrix.target.rust-target }}/debian/sshs_${{ github.ref }}-1_${{ matrix.target.arch }}.deb.sha256"
+        run: shasum --algorithm 256 "target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb" > "target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb.sha256"
 
       - uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
-          file: target/${{ matrix.target.rust-target }}/debian/sshs_${{ github.ref }}-1_${{ matrix.target.arch }}.deb.sha256
+          file: target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb.sha256
