@@ -92,6 +92,14 @@ jobs:
           file: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256
 
   package:
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - arch: "amd64"
+            rust-target: "x86_64-unknown-linux-gnu"
+          - arch: "arm64"
+            rust-target: "aarch64-unknown-linux-gnu"
     needs: build
     runs-on: ubuntu-latest
     name: Package and upload artifact
@@ -102,31 +110,31 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install toolchain
-        run: rustup toolchain install stable --profile minimal --target x86_64-unknown-linux-gnu --no-self-update
+        run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
       - name: Install cargo-deb
         run: cargo install cargo-deb
 
       - name: Build deb package
-        run: cargo deb --target x86_64-unknown-linux-gnu
+        run: cargo deb --target ${{ matrix.target.rust-target }}
 
       - name: Set deb filename
         id: set_filename
-        run: echo "filename=sshs-${{ github.ref }}_amd64.deb" >> $GITHUB_OUTPUT
+        run: echo "filename=sshs-${{ github.ref }}_${{ matrix.target.arch }}.deb" >> $GITHUB_OUTPUT
 
       - uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ steps.set_filename.outputs.filename }}
-          file: target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}-1_amd64.deb
+          file: target/${{ matrix.target.rust-target }}/debian/sshs_${{ github.ref }}-1_${{ matrix.target.arch }}.deb
 
       - name: Compute checksums
-        run: shasum --algorithm 256 "target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}-1_amd64.deb" > "target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}-1_amd64.deb.sha256"
+        run: shasum --algorithm 256 "target/${{ matrix.target.rust-target }}/debian/sshs_${{ github.ref }}-1_${{ matrix.target.arch }}.deb" > "target/${{ matrix.target.rust-target }}/debian/sshs_${{ github.ref }}-1_${{ matrix.target.arch }}.deb.sha256"
 
       - uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
           asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
-          file: target/x86_64-unknown-linux-gnu/debian/sshs_${{ github.ref }}-1_amd64.deb.sha256
+          file: target/${{ matrix.target.rust-target }}/debian/sshs_${{ github.ref }}-1_${{ matrix.target.arch }}.deb.sha256
