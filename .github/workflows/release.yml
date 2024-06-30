@@ -123,6 +123,9 @@ jobs:
           fileName: sshs-linux-${{ matrix.target.arch }}
           out-file-path: target/${{ matrix.target.rust-target }}/release
 
+      - name: Rename binary
+        run: mv target/${{ matrix.target.rust-target }}/release/sshs-linux-${{ matrix.target.arch }} target/${{ matrix.target.rust-target }}/release/sshs
+
       - name: Create Debian package
         run: cargo deb --no-build --target ${{ matrix.target.rust-target }} --output "target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb"
 
