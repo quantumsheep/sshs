@@ -112,6 +112,9 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
       - name: Install cargo-deb
         run: cargo install cargo-deb
 
