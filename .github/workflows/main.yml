@@ -51,12 +51,12 @@ jobs:
         id: set_filename
         run: echo "filename=sshs-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ steps.set_extension.outputs.extension }}" >> $GITHUB_OUTPUT
 
-      - uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
-          asset_name: ${{ steps.set_filename.outputs.filename }}
-          file: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}
+      # - uses: svenstaro/upload-release-action@v2
+      #   with:
+      #     repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #     tag: ${{ github.ref }}
+      #     asset_name: ${{ steps.set_filename.outputs.filename }}
+      #     file: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}
 
       - name: Compute checksums
         run: shasum --algorithm 256 "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}" > "target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256"
@@ -67,12 +67,12 @@ jobs:
         if: ${{ matrix.target.os == 'windows' }}
         shell: pwsh
 
-      - uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
-          asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
-          file: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256
+      # - uses: svenstaro/upload-release-action@v2
+      #   with:
+      #     repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #     tag: ${{ github.ref }}
+      #     asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
+      #     file: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}.sha256
 
   package:
     strategy:
@@ -119,19 +119,19 @@ jobs:
         id: set_filename
         run: echo "filename=sshs-linux-${{ matrix.target.arch }}.deb" >> $GITHUB_OUTPUT
 
-      - uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
-          asset_name: ${{ steps.set_filename.outputs.filename }}
-          file: target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb
+      # - uses: svenstaro/upload-release-action@v2
+      #   with:
+      #     repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #     tag: ${{ github.ref }}
+      #     asset_name: ${{ steps.set_filename.outputs.filename }}
+      #     file: target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb
 
       - name: Compute checksums
         run: shasum --algorithm 256 "target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb" > "target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb.sha256"
 
-      - uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
-          asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
-          file: target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb.sha256
+      # - uses: svenstaro/upload-release-action@v2
+      #   with:
+      #     repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #     tag: ${{ github.ref }}
+      #     asset_name: ${{ steps.set_filename.outputs.filename }}.sha256
+      #     file: target/${{ matrix.target.rust-target }}/debian/sshs-${{ matrix.target.arch }}.deb.sha256
