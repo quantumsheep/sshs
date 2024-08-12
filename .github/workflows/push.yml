@@ -13,8 +13,11 @@ jobs:
       matrix:
         target:
           - os: linux
-            arch: "amd64"
+            arch: "amd64-gnu"
             rust-target: "x86_64-unknown-linux-gnu"
+          - os: linux
+            arch: "amd64-musl"
+            rust-target: "x86_64-unknown-linux-musl"
           - os: linux
             arch: "arm64"
             rust-target: "aarch64-unknown-linux-gnu"
@@ -63,8 +66,12 @@ jobs:
       matrix:
         target:
           - os: linux
-            arch: "amd64"
+            arch: "amd64-gnu"
             rust-target: "x86_64-unknown-linux-gnu"
+            runs-on: ubuntu-latest
+          - os: linux
+            arch: "amd64-musl"
+            rust-target: "x86_64-unknown-linux-musl"
             runs-on: ubuntu-latest
           - os: linux
             arch: "arm64"
