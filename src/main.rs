@@ -38,6 +38,14 @@ struct Args {
     #[arg(short, long, default_value = "ssh \"{{{name}}}\"")]
     template: String,
 
+    /// Handlebars template of the command to execute when an SSH session starts
+    #[arg(long, value_name = "TEMPLATE")]
+    on_session_start_template: Option<String>,
+
+    /// Handlebars template of the command to execute when an SSH session ends
+    #[arg(long, value_name = "TEMPLATE")]
+    on_session_end_template: Option<String>,
+
     /// Exit after ending the SSH session
     #[arg(short, long, default_value_t = false)]
     exit: bool,
@@ -52,7 +60,9 @@ fn main() -> Result<()> {
         sort_by_name: args.sort,
         show_proxy_command: args.show_proxy_command,
         command_template: args.template,
-        exit_after_ssh: args.exit,
+        command_template_on_session_start: args.on_session_start_template,
+        command_template_on_session_end: args.on_session_end_template,
+        exit_after_ssh_session_ends: args.exit,
     })?;
     app.start()?;
 

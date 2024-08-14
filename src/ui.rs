@@ -35,7 +35,9 @@ pub struct AppConfig {
     pub show_proxy_command: bool,
 
     pub command_template: String,
-    pub exit_after_ssh: bool,
+    pub command_template_on_session_start: Option<String>,
+    pub command_template_on_session_end: Option<String>,
+    pub exit_after_ssh_session_ends: bool,
 }
 
 pub struct App {
@@ -223,11 +225,19 @@ impl App {
 
                 restore_terminal(terminal).expect("Failed to restore terminal");
 
+                if let Some(template) = &self.config.command_template_on_session_start {
+                    host.run_command_template(template)?;
+                }
+
                 host.run_command_template(&self.config.command_template)?;
+
+                if let Some(template) = &self.config.command_template_on_session_end {
+                    host.run_command_template(template)?;
+                }
 
                 setup_terminal(terminal).expect("Failed to setup terminal");
 
-                if self.config.exit_after_ssh {
+                if self.config.exit_after_ssh_session_ends {
                     return Ok(AppKeyAction::Stop);
                 }
             }
