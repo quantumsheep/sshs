@@ -113,6 +113,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configure dpkg for arm64
+        if: ${{ matrix.target.arch == 'arm64' }}
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+
       - name: Install toolchain
         run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
@@ -121,6 +128,17 @@ jobs:
 
       - name: Install cargo-deb
         run: cargo install cargo-deb
+
+      - name: Configure cargo for arm64
+        if: ${{ matrix.target.arch == 'arm64' }}
+        run: |
+          mkdir -p ~/.cargo/
+          touch ~/.cargo/config
+          echo "[target.aarch64-unknown-linux-gnu]\nobjcopy = { path = \"aarch64-linux-gnu-objcopy\" }\nstrip = { path = \"aarch64-linux-gnu-strip\" }\n" > ~/.cargo/config
+
+          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+          export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
 
       - uses: Swatinem/rust-cache@v2
 
