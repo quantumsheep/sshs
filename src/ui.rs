@@ -261,6 +261,14 @@ impl App {
                 self.previous();
                 AppKeyAction::Ok
             }
+            Char('n') => {
+                self.next();
+                AppKeyAction::Ok
+            }
+            Char('p') => {
+                self.previous();
+                AppKeyAction::Ok
+            }
             _ => AppKeyAction::Continue,
         }
     }
