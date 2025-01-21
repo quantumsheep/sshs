@@ -253,19 +253,11 @@ impl App {
 
         match key.code {
             Char('c') => AppKeyAction::Stop,
-            Char('j') => {
+            Char('j' | 'n') => {
                 self.next();
                 AppKeyAction::Ok
             }
-            Char('k') => {
-                self.previous();
-                AppKeyAction::Ok
-            }
-            Char('n') => {
-                self.next();
-                AppKeyAction::Ok
-            }
-            Char('p') => {
+            Char('k' | 'p') => {
                 self.previous();
                 AppKeyAction::Ok
             }
