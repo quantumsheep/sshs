@@ -38,6 +38,14 @@ choco install sshs
 pacman -S sshs
 ```
 
+### Alpine Linux
+
+`sshs` is available in Alpine Linux [testing repository](https://pkgs.alpinelinux.org/package/edge/testing/x86_64/sshs).
+
+```shell
+apk add sshs
+```
+
 ### NixOS / Nix
 
 #### As a Flake
