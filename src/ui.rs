@@ -419,7 +419,7 @@ fn ui(f: &mut Frame, app: &mut App) {
         Constraint::Min(5),
         Constraint::Length(3),
     ])
-    .split(f.size());
+    .split(f.area());
 
     render_searchbar(f, app, rects[0]);
 
@@ -427,10 +427,11 @@ fn ui(f: &mut Frame, app: &mut App) {
 
     render_footer(f, app, rects[2]);
 
-    f.set_cursor(
-        rects[0].x + u16::try_from(app.search.cursor()).unwrap_or_default() + 4,
-        rects[0].y + 1,
-    );
+    let mut cursor_position = rects[0].as_position();
+    cursor_position.x += u16::try_from(app.search.cursor()).unwrap_or_default() + 4;
+    cursor_position.y += 1;
+
+    f.set_cursor_position(cursor_position);
 }
 
 fn render_searchbar(f: &mut Frame, app: &mut App, area: Rect) {
@@ -482,7 +483,7 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
     let bar = " █ ";
     let t = Table::new(rows, app.table_columns_constraints.clone())
         .header(header)
-        .highlight_style(selected_style)
+        .row_highlight_style(selected_style)
         .highlight_symbol(Text::from(vec![
             "".into(),
             bar.into(),
