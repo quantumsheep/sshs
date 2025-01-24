@@ -93,52 +93,65 @@ impl Host {
 #[allow(clippy::module_name_repetitions)]
 pub trait HostVecExt {
     /// Apply the name entry to the hostname entry if the hostname entry is empty.
-    fn apply_name_to_empty_hostname(&mut self) -> &mut Self;
+    #[must_use]
+    fn apply_name_to_empty_hostname(&self) -> Self;
 
     /// Merges the hosts with the same entries into one host.
-    fn merge_same_hosts(&mut self) -> &mut Self;
+    #[must_use]
+    fn merge_same_hosts(&self) -> Self;
 
     /// Spreads the hosts with multiple patterns into multiple hosts with one pattern.
-    fn spread(&mut self) -> &mut Self;
+    #[must_use]
+    fn spread(&self) -> Self;
 
     /// Apply patterns entries to non-pattern hosts and remove the pattern hosts.
-    fn apply_patterns(&mut self) -> &mut Self;
+    #[must_use]
+    fn apply_patterns(&self) -> Self;
 }
 
 impl HostVecExt for Vec<Host> {
-    fn apply_name_to_empty_hostname(&mut self) -> &mut Self {
-        for host in self.iter_mut() {
+    fn apply_name_to_empty_hostname(&self) -> Self {
+        let mut hosts = self.clone();
+
+        for host in &mut hosts {
             if host.get(&EntryType::Hostname).is_none() {
                 let name = host.patterns.first().unwrap().clone();
                 host.update((EntryType::Hostname, name));
             }
         }
 
-        self
+        hosts
     }
 
-    fn merge_same_hosts(&mut self) -> &mut Self {
-        for i in (0..self.len()).rev() {
+    fn merge_same_hosts(&self) -> Self {
+        let mut hosts = self.clone();
+
+        for i in (0..hosts.len()).rev() {
+            let (left, right) = hosts.split_at_mut(i); // Split into left and right parts
+
+            let current_host = &right[0];
+
             for j in (0..i).rev() {
-                if self[i].entries != self[j].entries {
+                let target_host = &mut left[j];
+
+                if current_host.entries != target_host.entries {
                     continue;
                 }
 
-                let host = self[i].clone();
-                self[j].extend_patterns(&host);
-                self[j].extend_entries(&host);
-                self.remove(i);
+                target_host.extend_patterns(current_host);
+                target_host.extend_entries(current_host);
+                hosts.remove(i);
                 break;
             }
         }
 
-        self
+        hosts
     }
 
-    fn spread(&mut self) -> &mut Self {
+    fn spread(&self) -> Vec<Host> {
         let mut hosts = Vec::new();
 
-        for host in self.iter_mut() {
+        for host in self {
             let patterns = host.get_patterns();
             if patterns.is_empty() {
                 hosts.push(host.clone());
@@ -152,14 +165,14 @@ impl HostVecExt for Vec<Host> {
             }
         }
 
-        self
+        hosts
     }
 
     /// Apply patterns entries to non-pattern hosts and remove the pattern hosts.
     ///
     /// You might want to call [`HostVecExt::merge_same_hosts`] after this.
-    fn apply_patterns(&mut self) -> &mut Self {
-        let hosts = self.spread();
+    fn apply_patterns(&self) -> Self {
+        let mut hosts = self.spread();
         let mut pattern_indexes = Vec::new();
 
         for i in 0..hosts.len() {
@@ -227,15 +240,71 @@ mod tests {
 
         assert_eq!(hosts.len(), 2);
 
+        assert_eq!(hosts[0].patterns.len(), 1);
         assert_eq!(hosts[0].patterns[0], "example.com");
         assert_eq!(hosts[0].entries.len(), 2);
         assert_eq!(hosts[0].entries[&EntryType::Hostname], "example.com");
         assert_eq!(hosts[0].entries[&EntryType::Port], "22");
 
+        assert_eq!(hosts[1].patterns.len(), 1);
         assert_eq!(hosts[1].patterns[0], "hello.com");
         assert_eq!(hosts[1].entries.len(), 3);
         assert_eq!(hosts[1].entries[&EntryType::Hostname], "example.com");
         assert_eq!(hosts[1].entries[&EntryType::User], "hello");
         assert_eq!(hosts[1].entries[&EntryType::Port], "22");
+    }
+
+    #[test]
+    fn test_spread() {
+        let mut hosts = Vec::new();
+
+        let mut host = Host::new(vec!["example.com".to_string()]);
+        host.update((EntryType::Port, "22".to_string()));
+        hosts.push(host);
+
+        let mut host = Host::new(vec!["hello.com".to_string(), "world.com".to_string()]);
+        host.update((EntryType::Port, "22".to_string()));
+        hosts.push(host);
+
+        let hosts = hosts.spread();
+
+        assert_eq!(hosts.len(), 3);
+
+        assert_eq!(hosts[0].patterns.len(), 1);
+        assert_eq!(hosts[0].patterns[0], "example.com");
+        assert_eq!(hosts[0].entries.len(), 1);
+        assert_eq!(hosts[0].entries[&EntryType::Port], "22");
+
+        assert_eq!(hosts[1].patterns.len(), 1);
+        assert_eq!(hosts[1].patterns[0], "hello.com");
+        assert_eq!(hosts[1].entries.len(), 1);
+        assert_eq!(hosts[1].entries[&EntryType::Port], "22");
+
+        assert_eq!(hosts[2].patterns.len(), 1);
+        assert_eq!(hosts[2].patterns[0], "world.com");
+        assert_eq!(hosts[2].entries.len(), 1);
+        assert_eq!(hosts[2].entries[&EntryType::Port], "22");
+    }
+
+    #[test]
+    fn test_merge_same_hosts() {
+        let mut hosts = Vec::new();
+
+        let mut host = Host::new(vec!["same1.com".to_string()]);
+        host.update((EntryType::Port, "22".to_string()));
+        hosts.push(host);
+
+        let mut host = Host::new(vec!["same2.com".to_string()]);
+        host.update((EntryType::Port, "22".to_string()));
+        hosts.push(host);
+
+        let hosts = hosts.merge_same_hosts();
+
+        assert_eq!(hosts.len(), 3);
+
+        assert_eq!(hosts[0].patterns.len(), 2);
+        assert_eq!(hosts[0].patterns[0], "same1.com");
+        assert_eq!(hosts[0].entries.len(), 1);
+        assert_eq!(hosts[0].entries[&EntryType::Port], "22");
     }
 }
