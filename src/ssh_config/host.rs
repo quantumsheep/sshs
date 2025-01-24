@@ -138,6 +138,14 @@ impl HostVecExt for Vec<Host> {
                     continue;
                 }
 
+                if current_host
+                    .entries
+                    .values()
+                    .any(|value| value.contains("%h"))
+                {
+                    continue;
+                }
+
                 target_host.extend_patterns(current_host);
                 target_host.extend_entries(current_host);
                 hosts.remove(i);
@@ -298,6 +306,14 @@ mod tests {
         host.update((EntryType::Port, "22".to_string()));
         hosts.push(host);
 
+        let mut host = Host::new(vec!["hostentry1".to_string()]);
+        host.update((EntryType::Hostname, "%h.com".to_string()));
+        hosts.push(host);
+
+        let mut host = Host::new(vec!["hostentry2".to_string()]);
+        host.update((EntryType::Hostname, "%h.com".to_string()));
+        hosts.push(host);
+
         let hosts = hosts.merge_same_hosts();
 
         assert_eq!(hosts.len(), 3);
@@ -306,5 +322,15 @@ mod tests {
         assert_eq!(hosts[0].patterns[0], "same1.com");
         assert_eq!(hosts[0].entries.len(), 1);
         assert_eq!(hosts[0].entries[&EntryType::Port], "22");
+
+        assert_eq!(hosts[1].patterns.len(), 1);
+        assert_eq!(hosts[1].patterns[0], "hostentry1");
+        assert_eq!(hosts[1].entries.len(), 1);
+        assert_eq!(hosts[1].entries[&EntryType::Hostname], "%h.com");
+
+        assert_eq!(hosts[2].patterns.len(), 1);
+        assert_eq!(hosts[2].patterns[0], "hostentry2");
+        assert_eq!(hosts[2].entries.len(), 1);
+        assert_eq!(hosts[2].entries[&EntryType::Hostname], "%h.com");
     }
 }
