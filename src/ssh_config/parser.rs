@@ -59,8 +59,8 @@ impl Parser {
 
     fn parse_raw(&self, reader: &mut impl BufRead) -> Result<(Host, Vec<Host>), ParseError> {
         let mut global_host = Host::new(Vec::new());
-        let mut is_in_host_block = false;
         let mut hosts = Vec::new();
+        let mut current_host: Option<Host> = None;
 
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
@@ -84,10 +84,16 @@ impl Parser {
                     }
                 }
                 EntryType::Host => {
+                    if let Some(host) = current_host.take() {
+                        hosts.push(host);
+                    }
                     let patterns = parse_patterns(&entry.1);
-                    hosts.push(Host::new(patterns));
-                    is_in_host_block = true;
-
+                    if patterns.contains(&"*".to_string()) {
+                        global_host = Host::new(patterns.clone());
+                        hosts.push(global_host.clone());
+                    } else {
+                        current_host = Some(Host::new(patterns));
+                    }
                     continue;
                 }
                 EntryType::Include => {
@@ -124,42 +130,68 @@ impl Parser {
                         let mut file = BufReader::new(File::open(path)?);
                         let (included_global_host, included_hosts) = self.parse_raw(&mut file)?;
 
-                        if is_in_host_block {
-                            // Can't include hosts inside a host block
-                            if !included_hosts.is_empty() {
-                                return Err(InvalidIncludeError {
-                                    line,
-                                    details: InvalidIncludeErrorDetails::HostsInsideHostBlock,
-                                }
-                                .into());
-                            }
-
-                            hosts
-                                .last_mut()
-                                .unwrap()
-                                .extend_entries(&included_global_host);
-                        } else {
-                            if !included_global_host.is_empty() {
-                                global_host.extend_entries(&included_global_host);
-                            }
-
-                            hosts.extend(included_hosts);
-                        }
+                        global_host.extend_entries(&included_global_host);
+                        hosts.extend(included_hosts);
                     }
-
                     continue;
                 }
                 _ => {}
             }
 
-            if is_in_host_block {
-                hosts.last_mut().unwrap().update(entry);
+            if let Some(host) = current_host.as_mut() {
+                host.update(entry);
             } else {
                 global_host.update(entry);
             }
         }
 
+        if let Some(host) = current_host {
+            hosts.push(host);
+        }
+
         Ok((global_host, hosts))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_basic_host_parsing() {
+        let config = "\nHost example\n  User test\n  Port 2222\n";
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        assert!(result.is_ok());
+        let (_, hosts) = result.unwrap();
+        assert_eq!(hosts.len(), 1);
+        let host = hosts.first().unwrap();
+        assert!(host.get(&EntryType::User).is_some());
+        assert_eq!(host.get(&EntryType::User).unwrap(), "test");
+        assert!(host.get(&EntryType::Port).is_some());
+        assert_eq!(host.get(&EntryType::Port).unwrap(), "2222");
+    }
+
+    #[test]
+    fn test_include_directive() {
+        let config = "\nInclude other_config\nHost example\n  User test\n";
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_host_wildcard() {
+        let config = "\nHost *\n  Compression yes\nHost test\n  Compression no\n";
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        assert!(result.is_ok());
+        let (global_host, hosts) = result.unwrap();
+        assert!(!global_host.is_empty());
+        assert!(global_host.get(&EntryType::Compression).is_some());
+        assert_eq!(global_host.get(&EntryType::Compression).unwrap(), "yes");
+        assert_eq!(hosts.len(), 2);
     }
 }
 
