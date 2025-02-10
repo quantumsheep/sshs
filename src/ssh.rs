@@ -97,3 +97,127 @@ pub fn parse_config(raw_path: &String) -> Result<Vec<Host>, ParseConfigError> {
 
     Ok(hosts)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{remove_file, write};
+    use std::env::temp_dir;
+
+    #[test]
+    fn test_host_wildcard() {
+        let config_file_path = temp_dir().join("ssh_test_host_wildcard");
+        let config_contents = "\
+        Host *\n\
+            User global\n\
+            Port 22\n\
+        Host test\n\
+            Hostname test-host\n";
+        write(&config_file_path, config_contents).unwrap();
+
+        let parsed_hosts = parse_config(&config_file_path.display().to_string());
+        remove_file(&config_file_path).unwrap();
+        assert!(parsed_hosts.is_ok());
+
+        let hosts = parsed_hosts.unwrap();
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].name, "test");
+        assert_eq!(hosts[0].user.as_deref(), Some("global"));
+        assert_eq!(hosts[0].port.as_deref(), Some("22"));
+        assert_eq!(hosts[0].destination, "test-host");
+    }
+
+    #[test]
+    fn test_wildcard_in_include() {
+        let config_file_path = temp_dir().join("ssh_test_wildcard_in_include");
+        let include_file_path = temp_dir().join("ssh_test_wildcard_in_include_include");
+        let include_contents = "\
+        Host *\n\
+            User fallback\n\
+            Port 2022";
+        write(&include_file_path, include_contents).unwrap();
+        let config_contents = "\
+        Host jumpbox\n\
+            ProxyJump user@proxy.example.com\n\
+        Host db\n\
+            ProxyCommand ssh -W %h:%p jumpbox";
+        let config = format!(
+            "Include {}\n{}",
+            include_file_path.display(),
+            config_contents
+        );
+        write(&config_file_path, config).unwrap();
+
+        let parsed_hosts = parse_config(&config_file_path.display().to_string());
+        remove_file(&config_file_path).unwrap();
+        remove_file(&include_file_path).unwrap();
+        assert!(parsed_hosts.is_ok());
+
+        let hosts = parsed_hosts.unwrap();
+        assert_eq!(hosts.len(), 2);
+        assert_eq!(hosts[0].name, "jumpbox");
+        assert_eq!(hosts[0].user.as_deref(), Some("fallback"));
+        assert_eq!(hosts[0].port.as_deref(), Some("2022"));
+        assert_eq!(hosts[1].name, "db");
+        assert_eq!(hosts[1].user.as_deref(), Some("fallback"));
+        assert_eq!(hosts[1].port.as_deref(), Some("2022"));
+        assert_eq!(hosts[1].proxy_command.as_deref(), Some("ssh -W %h:%p jumpbox"));
+    }
+
+    #[test]
+    fn test_include_inside_host() {
+        let config_file_path = temp_dir().join("ssh_test_include_inside_host");
+        let include_file_path = temp_dir().join("ssh_test_include_inside_host_include");
+        write(&include_file_path, "User test_included").unwrap();
+
+        let config = format!("\
+            Host main\n\
+                Port 2222\n\
+                Include {}\n\
+            Host second\n\
+                Port 2223\n",
+            include_file_path.display()
+        );
+        write(&config_file_path, config).unwrap();
+
+        let parsed_hosts = parse_config(&config_file_path.display().to_string());
+        remove_file(&config_file_path).unwrap();
+        remove_file(&include_file_path).unwrap();
+        assert!(parsed_hosts.is_ok());
+
+        let hosts = parsed_hosts.unwrap();
+        assert_eq!(hosts.len(), 2);
+        assert_eq!(hosts[0].name, "main");
+        assert_eq!(hosts[0].user.as_deref(), Some("test_included"));
+        assert_eq!(hosts[0].port.as_deref(), Some("2222"));
+        assert_eq!(hosts[1].name, "second");
+        assert_eq!(hosts[1].user, None);
+        assert_eq!(hosts[1].port.as_deref(), Some("2223"));
+    }
+
+    #[test]
+    fn test_include_global_options() {
+        let config_file_path = temp_dir().join("ssh_test_include_global_options");
+        let include_file_path = temp_dir().join("ssh_test_include_global_options_include");
+        write(&include_file_path, "User test_included").unwrap();
+
+        let config = format!("\
+            Include {}\n\
+            Host main\n\
+                Port 2222\n",
+            include_file_path.display()
+        );
+        write(&config_file_path, config).unwrap();
+
+        let parsed_hosts = parse_config(&config_file_path.display().to_string());
+        remove_file(&config_file_path).unwrap();
+        remove_file(&include_file_path).unwrap();
+        assert!(parsed_hosts.is_ok());
+
+        let hosts = parsed_hosts.unwrap();
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].name, "main");
+        assert_eq!(hosts[0].user.as_deref(), Some("test_included"));
+        assert_eq!(hosts[0].port.as_deref(), Some("2222"));
+    }
+}

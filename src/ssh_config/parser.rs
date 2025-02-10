@@ -85,8 +85,10 @@ impl Parser {
                 }
                 EntryType::Host => {
                     let patterns = parse_patterns(&entry.1);
-                    hosts.push(Host::new(patterns));
-                    is_in_host_block = true;
+                    if !patterns.contains(&"*".to_string()) {
+                        is_in_host_block = true;
+                        hosts.push(Host::new(patterns));
+                    }
 
                     continue;
                 }
@@ -217,4 +219,237 @@ fn parse_patterns(entry_value: &str) -> Vec<String> {
     }
 
     patterns
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+    use std::fs::{remove_file, write};
+    use std::env::temp_dir;
+
+    #[test]
+    fn test_one_host() {
+        let config = "\
+        Host example\n\
+            User test\n\
+            Port 2222\n";
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        assert!(result.is_ok());
+        let (_, hosts) = result.unwrap();
+        assert_eq!(hosts.len(), 1);
+        let host = hosts.first().unwrap();
+        assert_eq!(host.get(&EntryType::User).unwrap(), "test");
+        assert_eq!(host.get(&EntryType::Port).unwrap(), "2222");
+    }
+
+    #[test]
+    fn test_multiple_host() {
+        let config = "\
+        Host example\n\
+            User test\n\
+            Port 2221\n\
+        Host example2\n\
+            User test2\n\
+            Port 2222\n";
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        assert!(result.is_ok());
+        let (_, hosts) = result.unwrap();
+        assert_eq!(hosts.len(), 2);
+        assert_eq!(hosts[0].get_patterns()[0], "example");
+        assert_eq!(hosts[0].get(&EntryType::User).unwrap(), "test");
+        assert_eq!(hosts[0].get(&EntryType::Port).unwrap(), "2221");
+        assert_eq!(hosts[1].get_patterns()[0], "example2");
+        assert_eq!(hosts[1].get(&EntryType::User).unwrap(), "test2");
+        assert_eq!(hosts[1].get(&EntryType::Port).unwrap(), "2222");
+    }
+
+    #[test]
+    fn test_include_host() {
+        let include_file = temp_dir().join("parser_test_include_host");
+        write(&include_file, "\
+        Host included\n\
+            User test_included").unwrap();
+
+        let config = format!(
+            "Include {}\n\
+            Host main\n\
+                User test_main\n",
+            include_file.display()
+        );
+
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        remove_file(&include_file).unwrap();
+        assert!(result.is_ok());
+
+        let (_, hosts) = result.unwrap();
+        assert_eq!(hosts.len(), 2);
+
+        let main_host = hosts.iter().find(|host| host.get_patterns()[0] == "main").unwrap();
+        assert_eq!(main_host.get(&EntryType::User).unwrap(), "test_main");
+
+        let included_host = hosts.iter().find(|host| host.get_patterns()[0] == "included").unwrap();
+        assert_eq!(included_host.get(&EntryType::User).unwrap(), "test_included");
+    }
+
+    #[test]
+    fn test_include_global_options() {
+        let include_file = temp_dir().join("parser_test_include_global_options");
+        write(&include_file, "User test_included").unwrap();
+
+        let config = format!(
+            "Include {}\n\
+            Host main\n\
+                User test_main\n",
+            include_file.display()
+        );
+
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        remove_file(&include_file).unwrap();
+        assert!(result.is_ok());
+
+        let (global_host, hosts) = result.unwrap();
+        assert!(!global_host.is_empty());
+        assert_eq!(global_host.get(&EntryType::User).unwrap(), "test_included");
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].get_patterns()[0], "main");
+        assert_eq!(hosts[0].get(&EntryType::User).unwrap(), "test_main");
+    }
+
+    #[test]
+    fn test_include_inside_host() {
+        let include_file = temp_dir().join("parser_test_include_inside_host");
+        write(&include_file, "User test_included").unwrap();
+
+        let config = format!(
+            "Host main\n\
+                Port 2222\n\
+                Include {}\n",
+            include_file.display()
+        );
+
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        remove_file(&include_file).unwrap();
+        assert!(result.is_ok());
+
+        let (global_host, hosts) = result.unwrap();
+        assert!(global_host.is_empty());
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].get_patterns()[0], "main");
+        assert_eq!(hosts[0].get(&EntryType::User).unwrap(), "test_included");
+        assert_eq!(hosts[0].get(&EntryType::Port).unwrap(), "2222");
+    }
+
+    // TODO: include is allowed inside a host block, but it should not override the previous values
+    // #[test]
+    // fn test_include_inside_host_no_override() {
+    //     let include_file = temp_dir().join("parser_test_include_inside_host_no_override");
+    //     write(&include_file, "User test_included").unwrap();
+    //
+    //     let config = format!(
+    //         "Host main\n\
+    //             User test_main\n\
+    //             Include {}\n",
+    //         include_file.display()
+    //     );
+    //
+    //     let mut reader = Cursor::new(config);
+    //     let result = Parser::new().parse_raw(&mut reader);
+    //     remove_file(&include_file).unwrap();
+    //     assert!(result.is_ok());
+    //
+    //     let (global_host, hosts) = result.unwrap();
+    //     assert!(global_host.is_empty());
+    //     assert_eq!(hosts.len(), 1);
+    //     assert_eq!(hosts[0].get_patterns()[0], "main");
+    //     assert_eq!(hosts[0].get(&EntryType::User).unwrap(), "test_main");
+    // }
+
+    #[test]
+    fn test_include_host_inside_host_error() {
+        let include_file = temp_dir().join("parser_test_include_host_inside_host_error");
+        write(&include_file, "\
+        Host included\n\
+            User test_included").unwrap();
+
+        let config = format!(
+            "Host main\n\
+                User test_main\n\
+                Include {}\n",
+            include_file.display()
+        );
+
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        remove_file(&include_file).unwrap();
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(ParseError::InvalidInclude(InvalidIncludeError {
+                details: InvalidIncludeErrorDetails::HostsInsideHostBlock,
+                ..
+            }))
+        ));
+    }
+
+    #[test]
+    fn test_host_wildcard() {
+        let config = "\
+        Host *\n\
+            Compression yes\n\
+            Port 22\n\
+        Host test\n \
+            User test-user\n";
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        assert!(result.is_ok());
+        let (global_host, hosts) = result.unwrap();
+        assert!(!global_host.is_empty());
+        assert_eq!(global_host.get(&EntryType::Port).unwrap(), "22");
+        assert_eq!(global_host.get(&EntryType::Compression).unwrap(), "yes");
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].get(&EntryType::User).unwrap(), "test-user");
+    }
+
+    #[test]
+    fn test_host_wildcard_only() {
+        let config = "\
+        Host *\n\
+            Compression yes\n\
+            Port 22\n";
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        assert!(result.is_ok());
+        let (global_host, hosts) = result.unwrap();
+        assert!(!global_host.is_empty());
+        assert_eq!(global_host.get(&EntryType::Port).unwrap(), "22");
+        assert_eq!(global_host.get(&EntryType::Compression).unwrap(), "yes");
+        assert_eq!(hosts.len(), 0);
+    }
+
+    #[test]
+    fn test_host_wildcard_multiple() {
+        let config = "\
+        Host *\n\
+            Compression yes\n\
+            Port 22\n\
+        Host *\n\
+            User global-user\n\
+            ProxyCommand command\n";
+        let mut reader = Cursor::new(config);
+        let result = Parser::new().parse_raw(&mut reader);
+        assert!(result.is_ok());
+        let (global_host, hosts) = result.unwrap();
+        assert!(!global_host.is_empty());
+        assert_eq!(global_host.get(&EntryType::Port).unwrap(), "22");
+        assert_eq!(global_host.get(&EntryType::Compression).unwrap(), "yes");
+        assert_eq!(global_host.get(&EntryType::User).unwrap(), "global-user");
+        assert_eq!(global_host.get(&EntryType::ProxyCommand).unwrap(), "command");
+        assert_eq!(hosts.len(), 0);
+    }
 }
