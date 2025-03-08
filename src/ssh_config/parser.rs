@@ -66,8 +66,7 @@ impl Parser {
         while reader.read_line(&mut line)? > 0 {
             // We separate parts that contain comments with #
             line = if line.contains('#') {
-                let parts = line.split("#").collect::<Vec<&str>>();
-                parts[0].trim().to_string()
+                line.split('#').next().unwrap().to_string()
             } else {
                 line.trim().to_string()
             };
