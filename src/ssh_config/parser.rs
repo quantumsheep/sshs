@@ -215,11 +215,11 @@ mod tests {
 
     #[test]
     fn test_basic_host_parsing() {
-        let config = r#"
+        let config = r"
             Host example
               User testuser
               Port 22
-        "#;
+        ";
         let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
         let result = parser.parse(&mut reader).unwrap();
@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn test_global_settings_applied_to_all_hosts() {
-        let config = r#"
+        let config = r"
             User globaluser
 
             Host server1
@@ -241,7 +241,7 @@ mod tests {
 
             Host server2
               Port 2200
-        "#;
+        ";
         let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
         let result = parser.parse(&mut reader).unwrap();
@@ -254,22 +254,22 @@ mod tests {
 
     #[test]
     fn test_include_file_parsing() {
-        let include_content = r#"
+        let include_content = r"
             Host included
               Port 2222
-        "#;
+        ";
 
         let temp_dir = TempDir::new("sshs").unwrap();
         let temp_file_path = temp_dir.path().join("included_config");
         let mut temp_file = File::create(&temp_file_path).unwrap();
-        write!(temp_file, "{}", include_content).unwrap();
+        write!(temp_file, "{include_content}").unwrap();
 
         let config = format!(
-            r#"
+            r"
                 Include {}
                 Host main
                   Port 22
-            "#,
+            ",
             temp_file_path.display()
         );
 
@@ -280,7 +280,7 @@ mod tests {
         assert_eq!(result.len(), 2);
         let all_patterns: Vec<String> = result
             .iter()
-            .flat_map(|host| host.get_patterns())
+            .flat_map(Host::get_patterns)
             .cloned()
             .collect();
         assert!(all_patterns.contains(&"included".to_string()));
@@ -289,11 +289,11 @@ mod tests {
 
     #[test]
     fn test_unknown_entry_error_when_not_ignored() {
-        let config = r#"
+        let config = r"
             BogusEntry something
             Host test
               Port 22
-        "#;
+        ";
         let mut reader = BufReader::new(config.as_bytes());
         let mut parser = Parser::new();
         parser.ignore_unknown_entries = false;
@@ -305,11 +305,11 @@ mod tests {
 
     #[test]
     fn test_unknown_entry_ignored_when_flag_set() {
-        let config = r#"
+        let config = r"
             BogusEntry something
             Host test
               Port 22
-        "#;
+        ";
         let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
 
@@ -321,11 +321,11 @@ mod tests {
 
     #[test]
     fn test_comment_lines_ignored() {
-        let config = r#"
+        let config = r"
             # This is a comment
             Host test # trailing comment
               User testuser # inline comment
-        "#;
+        ";
         let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
 
@@ -336,9 +336,9 @@ mod tests {
 
     #[test]
     fn test_unparseable_line_error() {
-        let config = r#"
+        let config = r"
             UnparseableLineWithoutValue
-        "#;
+        ";
         let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
 
@@ -357,15 +357,15 @@ mod tests {
 
     #[test]
     fn test_parse_file_from_path() {
-        let content = r#"
+        let content = r"
             Host fromfile
               Port 2222
-        "#;
+        ";
 
         let temp_dir = TempDir::new("sshs").unwrap();
         let temp_file_path = temp_dir.path().join("included_config");
         let mut temp_file = File::create(&temp_file_path).unwrap();
-        write!(temp_file, "{}", content).unwrap();
+        write!(temp_file, "{content}").unwrap();
 
         let parser = Parser::new();
         let result = parser.parse_file(temp_file_path).unwrap();
