@@ -13,15 +13,15 @@ jobs:
           - os: linux
             arch: "amd64"
             rust-target: "x86_64-unknown-linux-gnu"
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
           - os: linux
             arch: "amd64-musl"
             rust-target: "x86_64-unknown-linux-musl"
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
           - os: linux
             arch: "arm64"
             rust-target: "aarch64-unknown-linux-gnu"
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04-arm
           - os: darwin
             arch: "amd64"
             rust-target: "x86_64-apple-darwin"
@@ -102,23 +102,18 @@ jobs:
         target:
           - arch: "amd64"
             rust-target: "x86_64-unknown-linux-gnu"
+            runs-on: ubuntu-24.04
           - arch: "arm64"
             rust-target: "aarch64-unknown-linux-gnu"
+            runs-on: ubuntu-24.04-arm
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.target.runs-on }}
     name: Package and upload artifact
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure dpkg for arm64
-        if: ${{ matrix.target.arch == 'arm64' }}
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
 
       - name: Install toolchain
         run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update

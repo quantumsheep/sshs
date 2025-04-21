@@ -33,7 +33,7 @@ jobs:
           - os: windows
             arch: "arm64"
             rust-target: "aarch64-pc-windows-msvc"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +47,7 @@ jobs:
   clippy:
     needs:
       - check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -68,15 +68,15 @@ jobs:
           - os: linux
             arch: "amd64"
             rust-target: "x86_64-unknown-linux-gnu"
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
           - os: linux
             arch: "amd64-musl"
             rust-target: "x86_64-unknown-linux-musl"
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
           - os: linux
             arch: "arm64"
             rust-target: "aarch64-unknown-linux-gnu"
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04-arm
           - os: darwin
             arch: "amd64"
             rust-target: "x86_64-apple-darwin"
@@ -135,7 +135,7 @@ jobs:
           compression-level: 0
 
   # nix:
-  #   runs-on: ubuntu-latest
+  #   runs-on: ubuntu-24.04
   #   steps:
   #     - uses: actions/checkout@v2
   #     - uses: cachix/install-nix-action@v17
