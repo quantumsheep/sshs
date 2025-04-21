@@ -4,7 +4,6 @@ use strum_macros;
 #[derive(Debug, strum_macros::Display, strum_macros::EnumString, Eq, PartialEq, Hash, Clone)]
 #[strum(ascii_case_insensitive)]
 pub enum EntryType {
-    #[strum(disabled)]
     Unknown(String),
     Host,
     Match,
