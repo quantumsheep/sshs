@@ -104,19 +104,10 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-        if: ${{ matrix.target.os != 'windows' && matrix.target.os != 'darwin' }}
-
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build using cross
-        run: cross build --release --target ${{ matrix.target.rust-target }}
-        if: ${{ matrix.target.os != 'windows' && matrix.target.os != 'darwin' }}
-
-      - name: Build using cargo
+      - name: Build
         run: cargo build --release --target ${{ matrix.target.rust-target }}
-        if: matrix.target.os == 'windows' || matrix.target.os == 'darwin'
 
       - name: Set .exe extension for Windows
         id: set_extension

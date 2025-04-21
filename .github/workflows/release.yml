@@ -49,19 +49,10 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-        if: ${{ matrix.target.os != 'windows' && matrix.target.os != 'darwin' }}
-
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build using cross
-        run: cross build --release --target ${{ matrix.target.rust-target }}
-        if: ${{ matrix.target.os != 'windows' && matrix.target.os != 'darwin' }}
-
-      - name: Build using cargo
+      - name: Build
         run: cargo build --release --target ${{ matrix.target.rust-target }}
-        if: matrix.target.os == 'windows' || matrix.target.os == 'darwin'
 
       - name: Set .exe extension for Windows
         id: set_extension
@@ -118,22 +109,8 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install stable --profile minimal --target ${{ matrix.target.rust-target }} --no-self-update
 
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
       - name: Install cargo-deb
         run: cargo install cargo-deb
-
-      - name: Configure cargo for arm64
-        if: ${{ matrix.target.arch == 'arm64' }}
-        run: |
-          mkdir -p ~/.cargo/
-          touch ~/.cargo/config
-          echo "[target.aarch64-unknown-linux-gnu]\nobjcopy = { path = \"aarch64-linux-gnu-objcopy\" }\nstrip = { path = \"aarch64-linux-gnu-strip\" }\n" > ~/.cargo/config
-
-          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-          export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
-          export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
 
       - uses: Swatinem/rust-cache@v2
 
