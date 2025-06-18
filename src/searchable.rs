@@ -13,6 +13,7 @@ where
 {
     sort_by_levenshtein: bool,
     vec: Vec<T>,
+    matcher: SkimMatcherV2,
     filter: Box<SearchableFn<T>>,
     filtered: Vec<T>,
 }
@@ -29,7 +30,7 @@ where
         let mut searchable = Self {
             sort_by_levenshtein,
             vec,
-
+            matcher: SkimMatcherV2::default(),
             filter: Box::new(predicate),
             filtered: Vec::new(),
         };
@@ -43,13 +44,12 @@ where
             return;
         }
 
-        let matcher = SkimMatcherV2::default();
         let mut items: Vec<_> = self
             .vec
             .iter()
             .filter(|host| (self.filter)(host, value))
             .map(|item| {
-                let score = matcher.fuzzy_match(item.search_text(), value).unwrap_or(0);
+                let score = self.matcher.fuzzy_match(item.search_text(), value).unwrap_or(0);
                 (item.clone(), score)
             })
             .collect();
