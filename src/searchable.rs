@@ -43,30 +43,23 @@ where
             return;
         }
 
-        if self.sort_by_levenshtein {
-            let matcher = SkimMatcherV2::default();
-            let mut items: Vec<_> = self
-                .vec
-                .iter()
-                .filter(|host| (self.filter)(host, value))
-                .map(|item| {
-                    let score = matcher.fuzzy_match(item.search_text(), value).unwrap_or(0);
-                    (item.clone(), score)
-                })
-                .collect();
-
-            // Sort by Levenshtein distance in descending order (higher score = better match)
-            items.sort_by(|a, b| b.1.cmp(&a.1));
-
-            self.filtered = items.into_iter().map(|(item, _)| item).collect();
-        } else {
-            self.filtered = self
+        let matcher = SkimMatcherV2::default();
+        let mut items: Vec<_> = self
             .vec
             .iter()
             .filter(|host| (self.filter)(host, value))
-            .cloned()
+            .map(|item| {
+                let score = matcher.fuzzy_match(item.search_text(), value).unwrap_or(0);
+                (item.clone(), score)
+            })
             .collect();
+
+        // Sort by Levenshtein distance in descending order (higher score = better match)
+        if self.sort_by_levenshtein {
+            items.sort_by(|a, b| b.1.cmp(&a.1));
         }
+
+        self.filtered = items.into_iter().map(|(item, _)| item).collect();
     }
 
     #[allow(clippy::must_use_candidate)]
