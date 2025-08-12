@@ -5,6 +5,7 @@ type SearchableFn<T> = dyn FnMut(&&T, &str) -> bool;
 
 pub trait SearchableItem {
     fn search_text(&self) -> &str;
+    fn from_search_value(value: &str) -> Self;
 }
 
 pub struct Searchable<T>
@@ -59,7 +60,14 @@ where
             items.sort_by(|a, b| b.1.cmp(&a.1));
         }
 
-        self.filtered = items.into_iter().map(|(item, _)| item).collect();
+        // If no results found, return the search value itself
+        if items.is_empty() {
+            // Create a dummy item with the search value
+            let dummy_item = T::from_search_value(value);
+            self.filtered = vec![dummy_item];
+        } else {
+            self.filtered = items.into_iter().map(|(item, _)| item).collect();
+        }
     }
 
     #[allow(clippy::must_use_candidate)]
