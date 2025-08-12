@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use std::process::Command;
 
 use crate::ssh_config::{self, parser_error::ParseError, HostVecExt};
+use crate::searchable::SearchableItem;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Host {
@@ -15,6 +16,23 @@ pub struct Host {
     pub destination: String,
     pub port: Option<String>,
     pub proxy_command: Option<String>,
+}
+
+impl SearchableItem for Host {
+    fn search_text(&self) -> &str {
+        &self.name
+    }
+
+    fn from_search_value(value: &str) -> Self {
+        Host {
+            name: value.to_string(),
+            aliases: String::new(),
+            user: None,
+            destination: String::new(),
+            port: None,
+            proxy_command: None,
+        }
+    }
 }
 
 impl Host {

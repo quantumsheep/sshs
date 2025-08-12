@@ -1,27 +1,37 @@
+use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
+
 type SearchableFn<T> = dyn FnMut(&&T, &str) -> bool;
+
+pub trait SearchableItem {
+    fn search_text(&self) -> &str;
+    fn from_search_value(value: &str) -> Self;
+}
 
 pub struct Searchable<T>
 where
-    T: Clone,
+    T: Clone + SearchableItem,
 {
+    sort_by_levenshtein: bool,
     vec: Vec<T>,
-
+    matcher: SkimMatcherV2,
     filter: Box<SearchableFn<T>>,
     filtered: Vec<T>,
 }
 
 impl<T> Searchable<T>
 where
-    T: Clone,
+    T: Clone + SearchableItem,
 {
     #[must_use]
-    pub fn new<P>(vec: Vec<T>, search_value: &str, predicate: P) -> Self
+    pub fn new<P>(sort_by_levenshtein: bool, vec: Vec<T>, search_value: &str, predicate: P) -> Self
     where
         P: FnMut(&&T, &str) -> bool + 'static,
     {
         let mut searchable = Self {
+            sort_by_levenshtein,
             vec,
-
+            matcher: SkimMatcherV2::default(),
             filter: Box::new(predicate),
             filtered: Vec::new(),
         };
@@ -35,12 +45,29 @@ where
             return;
         }
 
-        self.filtered = self
+        let mut items: Vec<_> = self
             .vec
             .iter()
             .filter(|host| (self.filter)(host, value))
-            .cloned()
+            .map(|item| {
+                let score = self.matcher.fuzzy_match(item.search_text(), value).unwrap_or(0);
+                (item.clone(), score)
+            })
             .collect();
+
+        // Sort by Levenshtein distance in descending order (higher score = better match)
+        if self.sort_by_levenshtein {
+            items.sort_by(|a, b| b.1.cmp(&a.1));
+        }
+
+        // If no results found, return the search value itself
+        if items.is_empty() {
+            // Create a dummy item with the search value
+            let dummy_item = T::from_search_value(value);
+            self.filtered = vec![dummy_item];
+        } else {
+            self.filtered = items.into_iter().map(|(item, _)| item).collect();
+        }
     }
 
     #[allow(clippy::must_use_candidate)]
@@ -64,7 +91,7 @@ where
 
 impl<'a, T> IntoIterator for &'a Searchable<T>
 where
-    T: Clone,
+    T: Clone + SearchableItem,
 {
     type Item = &'a T;
     type IntoIter = std::slice::Iter<'a, T>;
@@ -76,7 +103,7 @@ where
 
 impl<T> std::ops::Index<usize> for Searchable<T>
 where
-    T: Clone,
+    T: Clone + SearchableItem,
 {
     type Output = T;
 
