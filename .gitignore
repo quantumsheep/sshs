@@ -19,5 +19,6 @@ result
 
 
 # Added by cargo
-
+.idea/
+.zed/
 /target

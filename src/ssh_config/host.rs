@@ -177,46 +177,57 @@ impl HostVecExt for Vec<Host> {
     }
 
     /// Apply patterns entries to non-pattern hosts and remove the pattern hosts.
+    /// 
+    /// Only copies UI-relevant parameters (User, Hostname, Port, ProxyCommand) from pattern hosts
+    /// to matching non-pattern hosts when the parameter doesn't already exist.
     ///
     /// You might want to call [`HostVecExt::merge_same_hosts`] after this.
     fn apply_patterns(&self) -> Self {
-        let mut hosts = self.spread();
-        let mut pattern_indexes = Vec::new();
-
-        for i in 0..hosts.len() {
-            let matching_pattern_regexes = hosts[i].matching_pattern_regexes();
-            if matching_pattern_regexes.is_empty() {
-                continue;
-            }
-
-            pattern_indexes.push(i);
-
-            for j in 0..hosts.len() {
-                if i == j {
-                    continue;
-                }
-
-                if !hosts[j].matching_pattern_regexes().is_empty() {
-                    continue;
-                }
-
-                for (regex, is_negated) in &matching_pattern_regexes {
-                    if regex.is_match(&hosts[j].patterns[0]) == *is_negated {
-                        continue;
-                    }
-
-                    let host = hosts[i].clone();
-                    hosts[j].extend_if_not_contained(&host);
-                    break;
-                }
-            }
-        }
-
-        for i in pattern_indexes.into_iter().rev() {
-            hosts.remove(i);
-        }
-
-        hosts
+        // UI展示关心的参数列表
+        const UI_RELEVANT_ENTRY_TYPES: [EntryType; 4] = [
+            EntryType::User,
+            EntryType::Hostname,
+            EntryType::Port,
+            EntryType::ProxyCommand,
+        ];
+        
+        let spread_hosts = self.spread();
+        
+        // 分离模式主机和非模式主机
+        let (pattern_hosts, non_pattern_hosts): (Vec<_>, Vec<_>) = 
+            spread_hosts.into_iter().partition(|host| !host.matching_pattern_regexes().is_empty());
+        
+        // 对每个非模式主机应用匹配的模式主机参数
+        non_pattern_hosts
+            .into_iter()
+            .map(|mut host| {
+                // 先计算匹配的模式主机，避免同时借用host
+                let host_name = host.patterns[0].clone();
+                
+                // 找出所有匹配的模式主机
+                let matching_patterns: Vec<_> = pattern_hosts
+                    .iter()
+                    .filter(|pattern_host| {
+                        pattern_host.matching_pattern_regexes().iter().any(|(regex, is_negated)| {
+                            regex.is_match(&host_name) != *is_negated
+                        })
+                    })
+                    .collect();
+                
+                // 应用参数
+                matching_patterns.iter().for_each(|pattern_host| {
+                    UI_RELEVANT_ENTRY_TYPES.iter().for_each(|entry_type| {
+                        if host.get(entry_type).is_none() {
+                            if let Some(value) = pattern_host.get(entry_type) {
+                                host.update((entry_type.clone(), value));
+                            }
+                        }
+                    });
+                });
+                
+                host
+            })
+            .collect()
     }
 }
 
