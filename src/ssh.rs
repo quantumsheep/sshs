@@ -66,6 +66,31 @@ impl From<ParseError> for ParseConfigError {
     }
 }
 
+/// Process raw host configurations, apply empty hostname logic and convert to Host structs
+/// 
+/// # Arguments
+/// * `raw_hosts` - List of raw host configurations parsed from SSH config file
+/// 
+/// # Returns
+/// List of processed Host structs
+pub fn process_hosts(raw_hosts: Vec<ssh_config::Host>) -> Vec<Host> {
+    // Apply configuration processing in optimal order and convert to Host structs
+    raw_hosts
+        .apply_name_to_empty_hostname()
+        .apply_patterns()
+        .merge_same_hosts()
+        .iter()
+        .map(|host| Host {
+            name: host.get_patterns().first().unwrap_or(&String::new()).clone(),
+            aliases: host.get_patterns().iter().skip(1).join(", "),
+            user: host.get(&ssh_config::EntryType::User),
+            destination: host.get(&ssh_config::EntryType::Hostname).unwrap_or_default(),
+            port: host.get(&ssh_config::EntryType::Port),
+            proxy_command: host.get(&ssh_config::EntryType::ProxyCommand),
+        })
+        .collect()
+}
+
 /// # Errors
 ///
 /// Will return `Err` if the SSH configuration file cannot be parsed.
@@ -73,27 +98,64 @@ pub fn parse_config(raw_path: &String) -> Result<Vec<Host>, ParseConfigError> {
     let normalized_path = shellexpand::tilde(&raw_path).to_string();
     let path = std::fs::canonicalize(normalized_path)?;
 
-    let hosts = ssh_config::Parser::new()
-        .parse_file(path)?
-        .apply_patterns()
-        .apply_name_to_empty_hostname()
-        .merge_same_hosts()
-        .iter()
-        .map(|host| Host {
-            name: host
-                .get_patterns()
-                .first()
-                .unwrap_or(&String::new())
-                .clone(),
-            aliases: host.get_patterns().iter().skip(1).join(", "),
-            user: host.get(&ssh_config::EntryType::User),
-            destination: host
-                .get(&ssh_config::EntryType::Hostname)
-                .unwrap_or_default(),
-            port: host.get(&ssh_config::EntryType::Port),
-            proxy_command: host.get(&ssh_config::EntryType::ProxyCommand),
-        })
-        .collect();
+    // Parse the raw configuration file
+    let raw_hosts = ssh_config::Parser::new().parse_file(path)?;
+    
+    // Call the extracted processing logic
+    let hosts = process_hosts(raw_hosts);
 
     Ok(hosts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ssh_config::{EntryType, Host};
+
+    #[test]
+    fn test_process_hosts_with_aliases() {
+        // 直接创建包含多个模式的Host对象
+        let mut ssh_config_host = Host::new(vec![
+            "server1".to_string(),
+            "server2".to_string(),
+            "dev-server".to_string()
+        ]);
+        
+        // 添加配置项
+        ssh_config_host.update((EntryType::Hostname, "example.com".to_string()));
+        ssh_config_host.update((EntryType::User, "testuser".to_string()));
+        ssh_config_host.update((EntryType::Port, "2222".to_string()));
+        
+        // 创建原始主机列表
+        let raw_hosts = vec![ssh_config_host];
+        
+        // 调用process_hosts函数
+        let hosts = process_hosts(raw_hosts);
+        
+        // 验证结果
+        assert_eq!(hosts.len(), 1, "Should have one host entry");
+        assert_eq!(hosts[0].name, "server1", "First pattern should be the name");
+        assert_eq!(hosts[0].aliases, "server2, dev-server", "Remaining patterns should be aliases");
+        assert_eq!(hosts[0].destination, "example.com", "Hostname should be correct");
+        assert_eq!(hosts[0].user, Some("testuser".to_string()), "User should be correct");
+        assert_eq!(hosts[0].port, Some("2222".to_string()), "Port should be correct");
+    }
+    
+    #[test]
+    fn test_process_hosts_with_empty_hostname() {
+        // 测试没有设置Hostname的情况
+        let mut ssh_config_host = Host::new(vec!["server1".to_string(), "server2".to_string()]);
+        
+        // 不设置Hostname，这样会应用第一个模式作为Hostname
+        ssh_config_host.update((EntryType::User, "testuser".to_string()));
+        
+        let raw_hosts = vec![ssh_config_host];
+        let hosts = process_hosts(raw_hosts);
+        
+        // 验证结果 - Hostname应该被设置为第一个模式
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].name, "server1");
+        assert_eq!(hosts[0].aliases, "server2");
+        assert_eq!(hosts[0].destination, "server1", "Destination should be set to first pattern");
+    }
 }
