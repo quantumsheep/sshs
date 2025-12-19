@@ -34,6 +34,7 @@ pub struct AppConfig {
     pub sort_by_name: bool,
     pub sort_by_levenshtein: bool,
     pub show_proxy_command: bool,
+    pub show_proxy_jump: bool,
 
     pub command_template: String,
     pub command_template_on_session_start: Option<String>,
@@ -352,7 +353,7 @@ impl App {
         lengths.push(port_len);
 
         if self.config.show_proxy_command {
-            let proxy_len = self
+            let proxy_command_len = self
                 .hosts
                 .non_filtered_iter()
                 .map(|d| match &d.proxy_command {
@@ -362,7 +363,21 @@ impl App {
                 .map(UnicodeWidthStr::width)
                 .max()
                 .unwrap_or(0);
-            lengths.push(proxy_len);
+            lengths.push(proxy_command_len);
+        }
+
+        if self.config.show_proxy_jump {
+            let proxy_jump_len = self
+                .hosts
+                .non_filtered_iter()
+                .map(|d| match &d.proxy_jump {
+                    Some(proxy_jump) => proxy_jump.as_str(),
+                    None => "",
+                })
+                .map(UnicodeWidthStr::width)
+                .max()
+                .unwrap_or(0);
+            lengths.push(proxy_jump_len);
         }
 
         let mut new_constraints = vec![
@@ -453,7 +468,10 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
 
     let mut header_names = vec!["Name", "Aliases", "User", "Destination", "Port"];
     if app.config.show_proxy_command {
-        header_names.push("Proxy");
+        header_names.push("ProxyCommand");
+    }
+    if app.config.show_proxy_jump {
+        header_names.push("ProxyJump");
     }
 
     let header = header_names
@@ -474,6 +492,9 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         ];
         if app.config.show_proxy_command {
             content.push(host.proxy_command.clone().unwrap_or_default());
+        }
+        if app.config.show_proxy_jump {
+            content.push(host.proxy_jump.clone().unwrap_or_default());
         }
 
         content

@@ -26,6 +26,10 @@ struct Args {
     #[arg(long, default_value_t = false)]
     show_proxy_command: bool,
 
+    /// Shows `ProxyJump`
+    #[arg(long, default_value_t = false)]
+    show_proxy_jump: bool,
+
     /// Host search filter
     #[arg(short, long)]
     search: Option<String>,
@@ -64,6 +68,7 @@ fn main() -> Result<()> {
         sort_by_name: args.sort,
         sort_by_levenshtein: args.sort_fancy,
         show_proxy_command: args.show_proxy_command,
+        show_proxy_jump: args.show_proxy_jump,
         command_template: args.template,
         command_template_on_session_start: args.on_session_start_template,
         command_template_on_session_end: args.on_session_end_template,

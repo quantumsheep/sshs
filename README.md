@@ -4,7 +4,7 @@
     <img src="https://repology.org/badge/vertical-allrepos/sshs.svg" alt="Packaging status" align="right">
 </a>
 
-Terminal user interface for SSH.  
+Terminal user interface for SSH.
 It uses `~/.ssh/config` to list and connect to hosts.
 
 <br>
@@ -120,11 +120,17 @@ Host "My server"
   User root
   Port 22
 
-Host "Go through Proxy"
+Host "Go through ProxyCommand"
   HostName server2.example.com
   User someone
   Port 22
   ProxyCommand ssh -W %h:%p proxy.example.com
+
+Host "Go through ProxyJump"
+  HostName server3.example.com
+  User someoneelse
+  Port 22
+  ProxyJump jump.example.com
 ```
 
 You can check the [OpenBSD `ssh_config` reference](https://man.openbsd.org/ssh_config.5) for more information on how to setup `~/.ssh/config`.
