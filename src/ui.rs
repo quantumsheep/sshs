@@ -147,6 +147,7 @@ impl App {
     fn run<B>(&mut self, terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
     where
         B: Backend + std::io::Write,
+        <B as Backend>::Error: Send + Sync + 'static,
     {
         loop {
             terminal.borrow_mut().draw(|f| ui(f, self))?;
@@ -186,6 +187,7 @@ impl App {
     ) -> Result<AppKeyAction>
     where
         B: Backend + std::io::Write,
+        <B as Backend>::Error: Send + Sync + 'static,
     {
         #[allow(clippy::enum_glob_use)]
         use KeyCode::*;
@@ -381,6 +383,7 @@ impl App {
 fn setup_terminal<B>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
 where
     B: Backend + std::io::Write,
+    <B as Backend>::Error: Send + Sync + 'static,
 {
     let mut terminal = terminal.borrow_mut();
 
@@ -399,6 +402,7 @@ where
 fn restore_terminal<B>(terminal: &Rc<RefCell<Terminal<B>>>) -> Result<()>
 where
     B: Backend + std::io::Write,
+    <B as Backend>::Error: Send + Sync + 'static,
 {
     let mut terminal = terminal.borrow_mut();
     terminal.clear()?;
