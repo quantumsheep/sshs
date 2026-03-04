@@ -27,6 +27,7 @@ use crate::{searchable::Searchable, ssh};
 const INFO_TEXT: &str = "(Esc) quit | (↑) move up | (↓) move down | (enter) select";
 
 #[derive(Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct AppConfig {
     pub config_paths: Vec<String>,
 
@@ -482,7 +483,7 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
 
         content
             .iter()
-            .map(|content| Cell::from(Text::from(content.to_string())))
+            .map(|content| Cell::from(Text::from(content.clone())))
             .collect::<Row>()
     });
 
