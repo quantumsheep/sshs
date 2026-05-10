@@ -219,7 +219,8 @@ impl App {
                     let row_offset = table_area.y + top_border + header_height;
 
                     if mouse.row >= row_offset {
-                        let clicked_row = usize::from(mouse.row - row_offset);
+                        let scroll_offset = self.table_state.offset();
+                        let clicked_row = usize::from(mouse.row - row_offset) + scroll_offset;
                         if clicked_row < self.hosts.len() {
                             self.table_state.select(Some(clicked_row));
                         }
