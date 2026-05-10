@@ -3,7 +3,7 @@ use crossterm::{
     cursor::{Hide, Show},
     event::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
-        KeyModifiers,
+        KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
     },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -24,7 +24,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{searchable::Searchable, ssh};
 
-const INFO_TEXT: &str = "(Esc) quit | (↑) move up | (↓) move down | (enter) select";
+const INFO_TEXT: &str = "(Esc) quit | (↑/↓/click) navigate | (enter) connect";
 
 #[derive(Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -52,6 +52,7 @@ pub struct App {
     table_columns_constraints: Vec<Constraint>,
 
     palette: tailwind::Palette,
+    table_area: Rect,
 }
 
 #[derive(PartialEq)]
@@ -103,6 +104,7 @@ impl App {
             table_state: TableState::default().with_selected(0),
             table_columns_constraints: Vec::new(),
             palette: tailwind::BLUE,
+            table_area: Rect::default(),
 
             hosts: Searchable::new(
                 config.sort_by_levenshtein,
@@ -155,30 +157,79 @@ impl App {
 
             let ev = event::read()?;
 
-            if let Event::Key(key) = ev {
-                if key.kind == KeyEventKind::Press {
-                    let action = self.on_key_press(terminal, key)?;
+            match ev {
+                Event::Key(key) => {
+                    if key.kind == KeyEventKind::Press {
+                        let action = self.on_key_press(terminal, key)?;
+                        match action {
+                            AppKeyAction::Ok => continue,
+                            AppKeyAction::Stop => break,
+                            AppKeyAction::Continue => {}
+                        }
+                    }
+
+                    self.search.handle_event(&ev);
+                    self.hosts.search(self.search.value());
+
+                    let selected = self.table_state.selected().unwrap_or(0);
+                    if selected >= self.hosts.len() {
+                        self.table_state.select(Some(match self.hosts.len() {
+                            0 => 0,
+                            _ => self.hosts.len() - 1,
+                        }));
+                    }
+                }
+                Event::Mouse(mouse) => {
+                    let action = self.on_mouse_event(terminal, mouse)?;
                     match action {
                         AppKeyAction::Ok => continue,
                         AppKeyAction::Stop => break,
                         AppKeyAction::Continue => {}
                     }
                 }
-
-                self.search.handle_event(&ev);
-                self.hosts.search(self.search.value());
-
-                let selected = self.table_state.selected().unwrap_or(0);
-                if selected >= self.hosts.len() {
-                    self.table_state.select(Some(match self.hosts.len() {
-                        0 => 0,
-                        _ => self.hosts.len() - 1,
-                    }));
-                }
+                _ => {}
             }
         }
 
         Ok(())
+    }
+
+    fn on_mouse_event<B>(
+        &mut self,
+        _terminal: &Rc<RefCell<Terminal<B>>>,
+        mouse: MouseEvent,
+    ) -> Result<AppKeyAction>
+    where
+        B: Backend + std::io::Write,
+        <B as Backend>::Error: Send + Sync + 'static,
+    {
+        match mouse.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                // Check if click is within table area
+                let table_area = self.table_area;
+                if mouse.column >= table_area.x
+                    && mouse.column < table_area.x + table_area.width
+                    && mouse.row >= table_area.y
+                    && mouse.row < table_area.y + table_area.height
+                {
+                    // Calculate which row was clicked
+                    // Account for header (1 line) and top border (1 line)
+                    let header_height = 1u16;
+                    let top_border = 1u16;
+                    let row_offset = table_area.y + top_border + header_height;
+
+                    if mouse.row >= row_offset {
+                        let clicked_row = usize::from(mouse.row - row_offset);
+                        if clicked_row < self.hosts.len() {
+                            self.table_state.select(Some(clicked_row));
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        Ok(AppKeyAction::Ok)
     }
 
     fn on_key_press<B>(
@@ -453,6 +504,9 @@ fn render_searchbar(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
+    // Store the table area for mouse click detection
+    app.table_area = area;
+
     let header_style = Style::default().fg(tailwind::CYAN.c500);
     let selected_style = Style::default().add_modifier(Modifier::REVERSED);
 
