@@ -53,6 +53,8 @@ pub struct App {
 
     palette: tailwind::Palette,
     table_area: Rect,
+    table_header_height: u16,
+    table_top_border: u16,
 }
 
 #[derive(PartialEq)]
@@ -105,6 +107,8 @@ impl App {
             table_columns_constraints: Vec::new(),
             palette: tailwind::BLUE,
             table_area: Rect::default(),
+            table_header_height: 0,
+            table_top_border: 0,
 
             hosts: Searchable::new(
                 config.sort_by_levenshtein,
@@ -213,9 +217,8 @@ impl App {
                     && mouse.row < table_area.y + table_area.height
                 {
                     // Calculate which row was clicked
-                    // Account for header (1 line) and top border (1 line)
-                    let header_height = 1u16;
-                    let top_border = 1u16;
+                    let header_height = self.table_header_height;
+                    let top_border = self.table_top_border;
                     let row_offset = table_area.y + top_border + header_height;
 
                     if mouse.row >= row_offset {
@@ -516,13 +519,14 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         header_names.push("Proxy");
     }
 
+    let header_height = 1u16;
     let header = header_names
         .iter()
         .copied()
         .map(Cell::from)
         .collect::<Row>()
         .style(header_style)
-        .height(1);
+        .height(header_height);
 
     let rows = app.hosts.iter().map(|host| {
         let mut content = vec![
@@ -559,6 +563,10 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
                 .border_style(Style::new().fg(app.palette.c400))
                 .border_type(BorderType::Rounded),
         );
+
+    let top_border = u16::from(Borders::ALL.intersects(Borders::TOP));
+    app.table_header_height = header_height;
+    app.table_top_border = top_border;
 
     f.render_stateful_widget(t, area, &mut app.table_state);
 }
