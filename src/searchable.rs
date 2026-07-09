@@ -56,7 +56,7 @@ where
 
         // Sort by Levenshtein distance in descending order (higher score = better match)
         if self.sort_by_levenshtein {
-            items.sort_by(|a, b| b.1.cmp(&a.1));
+            items.sort_by_key(|item| std::cmp::Reverse(item.1));
         }
 
         self.filtered = items.into_iter().map(|(item, _)| item).collect();

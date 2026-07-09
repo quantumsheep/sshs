@@ -89,7 +89,7 @@ impl App {
         }
 
         if config.sort_by_name {
-            hosts.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+            hosts.sort_by_key(|host| host.name.to_lowercase());
         }
 
         let search_input = config.search_filter.clone().unwrap_or_default();
