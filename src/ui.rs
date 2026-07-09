@@ -72,12 +72,16 @@ impl App {
             let parsed_hosts = match ssh::parse_config(path) {
                 Ok(hosts) => hosts,
                 Err(err) => {
-                    if path == "/etc/ssh/ssh_config" {
-                        if let ssh::ParseConfigError::Io(io_err) = &err {
-                            // Ignore missing system-wide SSH configuration file
-                            if io_err.kind() == std::io::ErrorKind::NotFound {
+                    if let ssh::ParseConfigError::Io(io_err) = &err {
+                        if io_err.kind() == std::io::ErrorKind::NotFound {
+                            if path == "/etc/ssh/ssh_config" {
+                                // Ignore missing system-wide SSH configuration file
                                 continue;
                             }
+
+                            anyhow::bail!(
+                                "SSH configuration file not found: {path}\nCreate it, or pass a different path with -c/--config."
+                            );
                         }
                     }
 
@@ -559,6 +563,29 @@ mod tests {
     fn type_char(app: &mut App, c: char) {
         let ev = Event::Key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
         app.handle_search_event(&ev);
+    }
+
+    /// Regression test for <https://github.com/quantumsheep/sshs/issues/120>:
+    /// a missing SSH config file used to surface a raw `Io(Os { .. })` debug
+    /// error; it should now explain what's missing and how to fix it.
+    #[test]
+    fn test_missing_config_file_gives_actionable_error() {
+        let mut config = test_config();
+        config.config_paths = vec!["/nonexistent/path/to/config".to_string()];
+
+        let message = match App::new(&config) {
+            Ok(_) => panic!("expected App::new to fail for a missing config file"),
+            Err(err) => err.to_string(),
+        };
+
+        assert!(
+            message.contains("/nonexistent/path/to/config"),
+            "error should mention the missing path: {message}"
+        );
+        assert!(
+            !message.contains("Os {"),
+            "error should not leak a raw Debug-formatted io::Error: {message}"
+        );
     }
 
     /// Regression test for <https://github.com/quantumsheep/sshs/issues/154>:
