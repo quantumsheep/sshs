@@ -4,6 +4,7 @@ pub mod ssh_config;
 #[cfg(test)]
 mod test_support;
 pub mod ui;
+pub mod window;
 
 use anyhow::Result;
 use clap::Parser;

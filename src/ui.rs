@@ -22,9 +22,16 @@ use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
 use unicode_width::UnicodeWidthStr;
 
-use crate::{searchable::Searchable, ssh};
+use crate::{
+    searchable::Searchable,
+    ssh::{self},
+    window::{
+        delete::OnKeyPressData as DeletePopupWindowOnKeyPressData,
+        delete::ShowData as DeletePopupWindowShowData, DeletePopupWindow, PopupWindow,
+    },
+};
 
-const INFO_TEXT: &str = "(Esc) quit | (↑) move up | (↓) move down | (enter) select";
+const INFO_TEXT: &str = "(Esc) quit | (↑) move up | (↓) move down | (enter) select | (Del) delete";
 
 #[derive(Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -48,14 +55,15 @@ pub struct App {
     search: Input,
 
     table_state: TableState,
-    hosts: Searchable<ssh::Host>,
     table_columns_constraints: Vec<Constraint>,
 
-    palette: tailwind::Palette,
+    pub(crate) hosts: Searchable<ssh::Host>,
+    pub(crate) palette: tailwind::Palette,
+    pub(crate) delete_popup_window: DeletePopupWindow,
 }
 
 #[derive(PartialEq)]
-enum AppKeyAction {
+pub enum AppKeyAction {
     Ok,
     Stop,
     Continue,
@@ -117,6 +125,8 @@ impl App {
                         || matcher.fuzzy_match(&host.aliases, search_value).is_some()
                 },
             ),
+
+            delete_popup_window: DeletePopupWindow::default(),
         };
         app.calculate_table_columns_constraints();
 
@@ -165,8 +175,10 @@ impl App {
                     }
                 }
 
-                self.search.handle_event(&ev);
-                self.hosts.search(self.search.value());
+                if !self.delete_popup_window.is_active() {
+                    self.search.handle_event(&ev);
+                    self.hosts.search(self.search.value());
+                }
 
                 let selected = self.table_state.selected().unwrap_or(0);
                 if selected >= self.hosts.len() {
@@ -192,6 +204,27 @@ impl App {
     {
         #[allow(clippy::enum_glob_use)]
         use KeyCode::*;
+
+        // If Popup Window is active `consume` key events
+        if self.delete_popup_window.is_active() {
+            let mut on_key_press_data = DeletePopupWindowOnKeyPressData::new(
+                self.config.config_paths.clone(),
+                self.hosts.items(),
+            );
+
+            let res = self
+                .delete_popup_window
+                .on_key_press(key, &mut on_key_press_data);
+
+            self.hosts = Searchable::new(
+                self.config.sort_by_levenshtein,
+                on_key_press_data.hosts,
+                "",
+                |_, _| false,
+            );
+
+            return res;
+        }
 
         let is_ctrl_pressed = key.modifiers.contains(KeyModifiers::CONTROL);
 
@@ -245,6 +278,16 @@ impl App {
                 if self.config.exit_after_ssh_session_ends {
                     return Ok(AppKeyAction::Stop);
                 }
+            }
+            Delete => {
+                let host_to_delete_index = self.table_state.selected().unwrap_or(0);
+                let host_to_delete = self.hosts[host_to_delete_index].clone();
+                self.delete_popup_window
+                    .show(DeletePopupWindowShowData::new(
+                        self.hosts.items(),
+                        host_to_delete_index,
+                        host_to_delete,
+                    ));
             }
             _ => return Ok(AppKeyAction::Continue),
         }
@@ -429,10 +472,12 @@ fn ui(f: &mut Frame, app: &mut App) {
     .split(f.area());
 
     render_searchbar(f, app, rects[0]);
-
     render_table(f, app, rects[1]);
-
     render_footer(f, app, rects[2]);
+
+    if app.delete_popup_window.is_active() {
+        app.delete_popup_window.render(f);
+    }
 
     let mut cursor_position = rects[0].as_position();
     cursor_position.x += u16::try_from(app.search.cursor()).unwrap_or_default() + 4;

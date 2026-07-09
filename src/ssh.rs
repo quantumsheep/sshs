@@ -72,6 +72,32 @@ impl Host {
     }
 }
 
+impl std::fmt::Display for Host {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.aliases.is_empty() {
+            writeln!(f, "Host {}", self.name)?;
+        } else {
+            writeln!(f, "Host {} {}", self.name, self.aliases)?;
+        }
+
+        writeln!(f, "    HostName {}", self.destination)?;
+
+        if let Some(user) = &self.user {
+            writeln!(f, "    User {}", user)?;
+        }
+
+        if let Some(port) = &self.port {
+            writeln!(f, "    Port {}", port)?;
+        }
+
+        if let Some(proxy) = &self.proxy_command {
+            writeln!(f, "    ProxyCommand {}", proxy)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub enum ParseConfigError {
     Io(std::io::Error),
