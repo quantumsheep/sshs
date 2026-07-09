@@ -165,16 +165,7 @@ impl App {
                     }
                 }
 
-                self.search.handle_event(&ev);
-                self.hosts.search(self.search.value());
-
-                let selected = self.table_state.selected().unwrap_or(0);
-                if selected >= self.hosts.len() {
-                    self.table_state.select(Some(match self.hosts.len() {
-                        0 => 0,
-                        _ => self.hosts.len() - 1,
-                    }));
-                }
+                self.handle_search_event(&ev);
             }
         }
 
@@ -269,6 +260,31 @@ impl App {
                 AppKeyAction::Ok
             }
             _ => AppKeyAction::Continue,
+        }
+    }
+
+    /// Updates the search input from a terminal event, re-filters the host
+    /// list, and keeps the table selection valid.
+    ///
+    /// When the search text actually changes, the selection resets to the
+    /// top result instead of keeping its previous numeric index: the old
+    /// index could otherwise point at an unrelated host in the newly
+    /// filtered list, making an apparently-unmatched host look selected.
+    fn handle_search_event(&mut self, ev: &Event) {
+        let search_value_before = self.search.value().to_string();
+        self.search.handle_event(ev);
+
+        if self.search.value() == search_value_before {
+            let selected = self.table_state.selected().unwrap_or(0);
+            if selected >= self.hosts.len() {
+                self.table_state.select(Some(match self.hosts.len() {
+                    0 => 0,
+                    _ => self.hosts.len() - 1,
+                }));
+            }
+        } else {
+            self.hosts.search(self.search.value());
+            self.table_state.select(Some(0));
         }
     }
 
@@ -518,4 +534,57 @@ fn render_footer(f: &mut Frame, app: &mut App, area: Rect) {
             .border_type(BorderType::Rounded),
     );
     f.render_widget(info_footer, area);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_config() -> AppConfig {
+        AppConfig {
+            config_paths: vec![crate::test_support::testdata("search_selection.conf")
+                .to_string_lossy()
+                .into_owned()],
+            search_filter: None,
+            sort_by_name: false,
+            sort_by_levenshtein: false,
+            show_proxy_command: false,
+            command_template: r#"ssh "{{{name}}}""#.to_string(),
+            command_template_on_session_start: None,
+            command_template_on_session_end: None,
+            exit_after_ssh_session_ends: false,
+        }
+    }
+
+    fn type_char(app: &mut App, c: char) {
+        let ev = Event::Key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        app.handle_search_event(&ev);
+    }
+
+    /// Regression test for <https://github.com/quantumsheep/sshs/issues/154>:
+    /// typing a search query used to keep the previously selected row index,
+    /// which could point at an unrelated host once the list was refiltered.
+    #[test]
+    fn test_search_resets_selection_to_top_match() {
+        let config = test_config();
+        let mut app = App::new(&config).unwrap();
+
+        // Sanity check: all 4 hosts are listed in file order before searching.
+        assert_eq!(app.hosts.len(), 4);
+
+        // Select the 2nd row ("other"), which won't match the search below.
+        app.next();
+        assert_eq!(app.table_state.selected(), Some(1));
+
+        for c in "match".chars() {
+            type_char(&mut app, c);
+        }
+
+        assert_eq!(app.hosts.len(), 3);
+        assert_eq!(app.hosts.iter().next().unwrap().name, "match1");
+
+        // The stale index (1) would previously stay selected, highlighting
+        // "match2" instead of resetting to the top match "match1".
+        assert_eq!(app.table_state.selected(), Some(0));
+    }
 }
