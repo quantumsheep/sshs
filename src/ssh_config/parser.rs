@@ -209,20 +209,12 @@ fn parse_patterns(entry_value: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
-    use std::io::{BufReader, Write};
-    use tempdir::TempDir;
+    use crate::test_support::testdata;
 
     #[test]
     fn test_basic_host_parsing() {
-        let config = r"
-            Host example
-              User testuser
-              Port 22
-        ";
-        let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
-        let result = parser.parse(&mut reader).unwrap();
+        let result = parser.parse_file(testdata("basic.conf")).unwrap();
 
         assert_eq!(result.len(), 1);
         let patterns = result[0].get_patterns();
@@ -233,18 +225,8 @@ mod tests {
 
     #[test]
     fn test_global_settings_applied_to_all_hosts() {
-        let config = r"
-            User globaluser
-
-            Host server1
-              Port 22
-
-            Host server2
-              Port 2200
-        ";
-        let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
-        let result = parser.parse(&mut reader).unwrap();
+        let result = parser.parse_file(testdata("global_settings.conf")).unwrap();
 
         assert_eq!(result.len(), 2);
         for host in result {
@@ -254,26 +236,10 @@ mod tests {
 
     #[test]
     fn test_include_file_parsing() {
-        let include_content = r"
-            Host included
-              Port 2222
-        ";
+        let included_path = testdata("include/included.conf");
+        let config = format!("Include {}\nHost main\n  Port 22\n", included_path.display());
 
-        let temp_dir = TempDir::new("sshs").unwrap();
-        let temp_file_path = temp_dir.path().join("included_config");
-        let mut temp_file = File::create(&temp_file_path).unwrap();
-        write!(temp_file, "{include_content}").unwrap();
-
-        let config = format!(
-            r"
-                Include {}
-                Host main
-                  Port 22
-            ",
-            temp_file_path.display()
-        );
-
-        let mut reader = BufReader::new(config.as_bytes());
+        let mut reader = std::io::BufReader::new(config.as_bytes());
         let parser = Parser::new();
         let result = parser.parse(&mut reader).unwrap();
 
@@ -289,60 +255,37 @@ mod tests {
 
     #[test]
     fn test_unknown_entry_error_when_not_ignored() {
-        let config = r"
-            BogusEntry something
-            Host test
-              Port 22
-        ";
-        let mut reader = BufReader::new(config.as_bytes());
         let mut parser = Parser::new();
         parser.ignore_unknown_entries = false;
 
-        let result = parser.parse(&mut reader);
+        let result = parser.parse_file(testdata("unknown_entry.conf"));
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ParseError::UnknownEntry(_)));
     }
 
     #[test]
     fn test_unknown_entry_ignored_when_flag_set() {
-        let config = r"
-            BogusEntry something
-            Host test
-              Port 22
-        ";
-        let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
+        let result = parser.parse_file(testdata("unknown_entry.conf"));
 
-        let result = parser.parse(&mut reader);
         assert!(result.is_ok());
-        let hosts = result.unwrap();
-        assert_eq!(hosts.len(), 1);
+        assert_eq!(result.unwrap().len(), 1);
     }
 
     #[test]
     fn test_comment_lines_ignored() {
-        let config = r"
-            # This is a comment
-            Host test # trailing comment
-              User testuser # inline comment
-        ";
-        let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
+        let result = parser.parse_file(testdata("comments.conf")).unwrap();
 
-        let result = parser.parse(&mut reader).unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].get(&EntryType::User).unwrap(), "testuser");
     }
 
     #[test]
     fn test_unparseable_line_error() {
-        let config = r"
-            UnparseableLineWithoutValue
-        ";
-        let mut reader = BufReader::new(config.as_bytes());
         let parser = Parser::new();
+        let result = parser.parse_file(testdata("unparseable.conf"));
 
-        let result = parser.parse(&mut reader);
         assert!(matches!(
             result.unwrap_err(),
             ParseError::UnparseableLine(_)
@@ -357,20 +300,23 @@ mod tests {
 
     #[test]
     fn test_parse_file_from_path() {
-        let content = r"
-            Host fromfile
-              Port 2222
-        ";
-
-        let temp_dir = TempDir::new("sshs").unwrap();
-        let temp_file_path = temp_dir.path().join("included_config");
-        let mut temp_file = File::create(&temp_file_path).unwrap();
-        write!(temp_file, "{content}").unwrap();
-
         let parser = Parser::new();
-        let result = parser.parse_file(temp_file_path).unwrap();
+        let result = parser.parse_file(testdata("basic.conf")).unwrap();
 
         assert_eq!(result.len(), 1);
-        assert!(result[0].get_patterns().contains(&"fromfile".to_string()));
+        assert!(result[0].get_patterns().contains(&"example".to_string()));
+    }
+
+    #[test]
+    fn test_host_with_spaces_in_name() {
+        let parser = Parser::new();
+        let result = parser.parse_file(testdata("spaces_in_name.conf")).unwrap();
+
+        assert_eq!(result.len(), 1);
+        let patterns = result[0].get_patterns();
+        assert!(patterns.contains(&"my Lab".to_string()));
+        assert_eq!(result[0].get(&EntryType::Hostname).unwrap(), "192.168.1.2");
+        assert_eq!(result[0].get(&EntryType::User).unwrap(), "root");
+        assert_eq!(result[0].get(&EntryType::Port).unwrap(), "22");
     }
 }

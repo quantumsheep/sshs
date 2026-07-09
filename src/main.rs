@@ -1,6 +1,8 @@
 pub mod searchable;
 pub mod ssh;
 pub mod ssh_config;
+#[cfg(test)]
+mod test_support;
 pub mod ui;
 
 use anyhow::Result;

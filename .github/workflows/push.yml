@@ -58,9 +58,27 @@ jobs:
 
       - run: cargo clippy --all-targets --all-features -- -W clippy::pedantic -D warnings
 
-  build:
+  test:
     needs:
       - clippy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: rustup toolchain install stable --profile minimal --no-self-update
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Start test SSH server
+        run: docker compose up --build --wait
+
+      - name: Run tests
+        run: cargo test
+
+  build:
+    needs:
+      - test
     strategy:
       fail-fast: false
       matrix:
