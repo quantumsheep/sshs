@@ -143,6 +143,22 @@ jobs:
           path: target/${{ matrix.target.rust-target }}/release/sshs${{ steps.set_extension.outputs.extension }}
           compression-level: 0
 
+  ci-success:
+    if: always()
+    needs:
+      - check
+      - clippy
+      - test
+      - build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check all jobs succeeded
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "One or more required jobs failed"
+            exit 1
+          fi
+
   # nix:
   #   runs-on: ubuntu-24.04
   #   steps:
