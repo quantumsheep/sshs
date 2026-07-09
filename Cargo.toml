@@ -34,4 +34,3 @@ tui-input = "0.15.0"
 unicode-width = "0.2.2"
 
 [dev-dependencies]
-tempdir = "0.3.7"

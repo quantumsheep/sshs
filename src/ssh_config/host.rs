@@ -40,6 +40,13 @@ impl Host {
         }
     }
 
+    /// Does `HostName` expand differently for each pattern?
+    fn hostname_depends_on_pattern(&self) -> bool {
+        self.entries
+            .get(&EntryType::Hostname)
+            .is_some_and(|hostname| hostname.contains("%h") || hostname.contains("%n"))
+    }
+
     #[allow(clippy::must_use_candidate)]
     pub fn get_patterns(&self) -> &Vec<String> {
         &self.patterns
@@ -138,11 +145,7 @@ impl HostVecExt for Vec<Host> {
                     continue;
                 }
 
-                if current_host
-                    .entries
-                    .values()
-                    .any(|value| value.contains("%h"))
-                {
+                if current_host.hostname_depends_on_pattern() {
                     continue;
                 }
 
@@ -332,5 +335,76 @@ mod tests {
         assert_eq!(hosts[2].patterns[0], "hostentry2");
         assert_eq!(hosts[2].entries.len(), 1);
         assert_eq!(hosts[2].entries[&EntryType::Hostname], "%h.com");
+    }
+
+    #[test]
+    fn test_merge_same_hosts_with_literal_hostname_and_control_path() {
+        let mut hosts = Vec::new();
+
+        let mut host = Host::new(vec!["example.com".to_string()]);
+        host.update((EntryType::Hostname, "example.com".to_string()));
+        host.update((EntryType::User, "user".to_string()));
+        host.update((
+            EntryType::ControlPath,
+            "~/.ssh/control/%r@%h:%p".to_string(),
+        ));
+        hosts.push(host);
+
+        let mut host = Host::new(vec!["example".to_string()]);
+        host.update((EntryType::Hostname, "example.com".to_string()));
+        host.update((EntryType::User, "user".to_string()));
+        host.update((
+            EntryType::ControlPath,
+            "~/.ssh/control/%r@%h:%p".to_string(),
+        ));
+        hosts.push(host);
+
+        let hosts = hosts.merge_same_hosts();
+
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].patterns.len(), 2);
+        assert_eq!(hosts[0].patterns[0], "example.com");
+        assert_eq!(hosts[0].patterns[1], "example");
+        assert_eq!(hosts[0].entries.len(), 3);
+        assert_eq!(hosts[0].entries[&EntryType::Hostname], "example.com");
+        assert_eq!(hosts[0].entries[&EntryType::User], "user");
+        assert_eq!(
+            hosts[0].entries[&EntryType::ControlPath],
+            "~/.ssh/control/%r@%h:%p"
+        );
+    }
+
+    #[test]
+    fn test_merge_same_hosts_with_h_in_hostname_still_blocks() {
+        let mut hosts = Vec::new();
+
+        let mut host = Host::new(vec!["s1".to_string()]);
+        host.update((EntryType::Hostname, "%h.example.com".to_string()));
+        hosts.push(host);
+
+        let mut host = Host::new(vec!["s2".to_string()]);
+        host.update((EntryType::Hostname, "%h.example.com".to_string()));
+        hosts.push(host);
+
+        let hosts = hosts.merge_same_hosts();
+
+        assert_eq!(hosts.len(), 2);
+    }
+
+    #[test]
+    fn test_merge_same_hosts_with_n_in_hostname_still_blocks() {
+        let mut hosts = Vec::new();
+
+        let mut host = Host::new(vec!["s1".to_string()]);
+        host.update((EntryType::Hostname, "%n.example.com".to_string()));
+        hosts.push(host);
+
+        let mut host = Host::new(vec!["s2".to_string()]);
+        host.update((EntryType::Hostname, "%n.example.com".to_string()));
+        hosts.push(host);
+
+        let hosts = hosts.merge_same_hosts();
+
+        assert_eq!(hosts.len(), 2);
     }
 }
