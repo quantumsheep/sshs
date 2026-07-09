@@ -5,8 +5,8 @@ use serde::Serialize;
 use std::collections::VecDeque;
 use std::process::Command;
 
-use crate::ssh_config::{self, parser_error::ParseError, HostVecExt};
 use crate::searchable::SearchableItem;
+use crate::ssh_config::{self, parser_error::ParseError, HostVecExt};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Host {
@@ -25,18 +25,26 @@ impl SearchableItem for Host {
 }
 
 impl Host {
-    /// Uses the provided Handlebars template to run a command.
+    /// Renders a Handlebars template using the host's fields.
     ///
     /// # Errors
     ///
-    /// Will return `Err` if the command cannot be executed.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if the regex cannot be compiled.
-    pub fn run_command_template(&self, pattern: &str) -> anyhow::Result<()> {
+    /// Will return `Err` if the template cannot be rendered.
+    pub fn render_command_template(&self, pattern: &str) -> anyhow::Result<String> {
         let handlebars = Handlebars::new();
-        let rendered_command = handlebars.render_template(pattern, &self)?;
+        Ok(handlebars.render_template(pattern, &self)?)
+    }
+
+    /// Renders the given template and spawns it as a command, waiting for it to exit.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if the command cannot be parsed or executed.
+    pub fn spawn_command_template(
+        &self,
+        pattern: &str,
+    ) -> anyhow::Result<std::process::ExitStatus> {
+        let rendered_command = self.render_command_template(pattern)?;
 
         println!("Running command: {rendered_command}");
 
@@ -46,7 +54,16 @@ impl Host {
             .collect::<VecDeque<String>>();
         let command = args.pop_front().ok_or(anyhow!("Failed to get command"))?;
 
-        let status = Command::new(command).args(args).spawn()?.wait()?;
+        Ok(Command::new(command).args(args).spawn()?.wait()?)
+    }
+
+    /// Uses the provided Handlebars template to run a command.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if the command cannot be executed.
+    pub fn run_command_template(&self, pattern: &str) -> anyhow::Result<()> {
+        let status = self.spawn_command_template(pattern)?;
         if !status.success() {
             std::process::exit(status.code().unwrap_or(1));
         }
@@ -103,4 +120,163 @@ pub fn parse_config(raw_path: &String) -> Result<Vec<Host>, ParseConfigError> {
         .collect();
 
     Ok(hosts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DEFAULT_TEMPLATE: &str = r#"ssh "{{{name}}}""#;
+
+    fn testdata(name: &str) -> String {
+        crate::test_support::testdata(name)
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    fn load(config: &str) -> Vec<Host> {
+        parse_config(&testdata(config)).expect("failed to parse config")
+    }
+
+    #[test]
+    fn test_render_basic() {
+        let hosts = load("basic.conf");
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(
+            hosts[0].render_command_template(DEFAULT_TEMPLATE).unwrap(),
+            r#"ssh "example""#
+        );
+    }
+
+    #[test]
+    fn test_render_global_settings() {
+        let hosts = load("global_settings.conf");
+        assert_eq!(hosts.len(), 2);
+        assert_eq!(
+            hosts[0].render_command_template(DEFAULT_TEMPLATE).unwrap(),
+            r#"ssh "server1""#
+        );
+        assert_eq!(
+            hosts[1].render_command_template(DEFAULT_TEMPLATE).unwrap(),
+            r#"ssh "server2""#
+        );
+    }
+
+    #[test]
+    fn test_render_comments() {
+        let hosts = load("comments.conf");
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(
+            hosts[0].render_command_template(DEFAULT_TEMPLATE).unwrap(),
+            r#"ssh "test""#
+        );
+    }
+
+    #[test]
+    fn test_render_unknown_entry() {
+        let hosts = load("unknown_entry.conf");
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(
+            hosts[0].render_command_template(DEFAULT_TEMPLATE).unwrap(),
+            r#"ssh "test""#
+        );
+    }
+
+    #[test]
+    fn test_render_spaces_in_name() {
+        let hosts = load("spaces_in_name.conf");
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].name, "my Lab");
+        assert_eq!(hosts[0].destination, "192.168.1.2");
+        // Default template embeds the name — the space causes SSH to reject it.
+        // The destination-based template is the correct workaround.
+        assert_eq!(
+            hosts[0].render_command_template(DEFAULT_TEMPLATE).unwrap(),
+            r#"ssh "my Lab""#
+        );
+        assert_eq!(
+            hosts[0]
+                .render_command_template(r#"ssh "{{{destination}}}""#)
+                .unwrap(),
+            r#"ssh "192.168.1.2""#
+        );
+    }
+
+    #[test]
+    fn test_render_custom_template_fields() {
+        let hosts = load("basic.conf");
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(
+            hosts[0]
+                .render_command_template(r"ssh -p {{{port}}} {{{user}}}@{{{destination}}}")
+                .unwrap(),
+            "ssh -p 22 testuser@example"
+        );
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+
+    fn testdata(name: &str) -> String {
+        crate::test_support::testdata(name)
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    /// Builds an SSH template that uses the test key and disables host key checking.
+    /// The Handlebars fields `{{{port}}}`, `{{{user}}}` and `{{{destination}}}` are
+    /// filled in at render time from the parsed host.
+    fn docker_ssh_template() -> String {
+        let key = crate::test_support::testdata("ssh/test_key");
+
+        // Git only tracks the executable bit, not full file modes, so the key's
+        // permissions are not guaranteed to survive a checkout. OpenSSH refuses
+        // to use a private key that is group/other readable, so pin it down here.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&key, std::fs::Permissions::from_mode(0o600))
+                .expect("failed to set test key permissions");
+        }
+
+        let key = key.to_string_lossy().into_owned();
+        format!("ssh -i {key}")
+            + " -o StrictHostKeyChecking=no"
+            + " -o UserKnownHostsFile=/dev/null"
+            + r" -p {{{port}}} {{{user}}}@{{{destination}}} echo connected"
+    }
+
+    #[test]
+    fn test_run_command_template_docker() {
+        let hosts = parse_config(&testdata("docker.conf")).unwrap();
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].name, "Test Server");
+        assert_eq!(hosts[0].destination, "127.0.0.1");
+
+        // Use spawn_command_template rather than run_command_template: the latter
+        // calls std::process::exit() on a non-zero exit status, which would abort
+        // the whole test binary instead of just failing this test.
+        let status = hosts[0]
+            .spawn_command_template(&docker_ssh_template())
+            .unwrap();
+        assert!(status.success());
+    }
+
+    #[test]
+    fn test_run_command_template_spaces_in_name() {
+        let hosts = parse_config(&testdata("spaces_docker.conf")).unwrap();
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].name, "my Lab");
+        assert_eq!(hosts[0].destination, "127.0.0.1");
+
+        // The default template (`ssh "{{{name}}}"`) would pass "my Lab" as the
+        // SSH target, which SSH rejects with "hostname contains invalid characters"
+        // (issue #60). The destination-based template correctly uses the HostName.
+        let status = hosts[0]
+            .spawn_command_template(&docker_ssh_template())
+            .unwrap();
+        assert!(status.success());
+    }
 }

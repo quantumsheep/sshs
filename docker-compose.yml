@@ -1,0 +1,13 @@
+services:
+  sshd:
+    build: ./docker/sshd
+    ports:
+      - "2223:22"
+    volumes:
+      - ./testdata/ssh/test_key.pub:/tmp/authorized_keys:ro
+      - ./docker/sshd/sshd_config:/etc/ssh/sshd_config:ro
+    healthcheck:
+      test: ["CMD", "ssh-keyscan", "-p", "22", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
