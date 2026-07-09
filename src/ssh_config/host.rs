@@ -122,8 +122,9 @@ impl HostVecExt for Vec<Host> {
 
         for host in &mut hosts {
             if host.get(&EntryType::Hostname).is_none() {
-                let name = host.patterns.first().unwrap().clone();
-                host.update((EntryType::Hostname, name));
+                if let Some(name) = host.patterns.first().cloned() {
+                    host.update((EntryType::Hostname, name));
+                }
             }
         }
 
@@ -226,6 +227,16 @@ impl HostVecExt for Vec<Host> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_apply_name_to_empty_hostname_skips_host_with_no_patterns() {
+        let hosts = vec![Host::new(vec![])];
+
+        let hosts = hosts.apply_name_to_empty_hostname();
+
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].get(&EntryType::Hostname), None);
+    }
 
     #[test]
     fn test_apply_patterns() {

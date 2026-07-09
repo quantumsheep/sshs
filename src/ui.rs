@@ -262,10 +262,12 @@ impl App {
             Down => self.next(),
             Up => self.previous(),
             Home => self.table_state.select(Some(0)),
-            End => self.table_state.select(Some(self.hosts.len() - 1)),
+            End => self
+                .table_state
+                .select(Some(self.hosts.len().saturating_sub(1))),
             PageDown => {
                 let i = self.table_state.selected().unwrap_or(0);
-                let target = min(i.saturating_add(21), self.hosts.len() - 1);
+                let target = min(i.saturating_add(21), self.hosts.len().saturating_sub(1));
 
                 self.table_state.select(Some(target));
             }
