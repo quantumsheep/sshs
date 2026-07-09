@@ -24,7 +24,12 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{searchable::Searchable, ssh};
 
-const INFO_TEXT: &str = "(Esc) quit | (↑) move up | (↓) move down | (enter) select";
+#[derive(Clone, PartialEq, Debug)]
+pub enum AppInputMode {
+    Normal,
+    Vim,
+    VimInsert,
+}
 
 #[derive(Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -40,6 +45,8 @@ pub struct AppConfig {
     pub command_template_on_session_start: Option<String>,
     pub command_template_on_session_end: Option<String>,
     pub exit_after_ssh_session_ends: bool,
+
+    pub input_mode: AppInputMode,
 }
 
 pub struct App {
@@ -190,13 +197,28 @@ impl App {
         B: Backend + std::io::Write,
         <B as Backend>::Error: Send + Sync + 'static,
     {
+        match self.config.input_mode {
+            AppInputMode::Normal => self.input_mode_normal_on_key_press(terminal, key),
+            AppInputMode::Vim => self.input_mode_vim_on_key_press(terminal, key),
+            AppInputMode::VimInsert => Ok(self.input_mode_vim_insert_on_key_press(terminal, key)),
+        }
+    }
+
+    fn input_mode_normal_on_key_press<B>(
+        &mut self,
+        terminal: &Rc<RefCell<Terminal<B>>>,
+        key: KeyEvent,
+    ) -> Result<AppKeyAction>
+    where
+        B: Backend + std::io::Write,
+    {
         #[allow(clippy::enum_glob_use)]
         use KeyCode::*;
 
         let is_ctrl_pressed = key.modifiers.contains(KeyModifiers::CONTROL);
 
         if is_ctrl_pressed {
-            let action = self.on_key_press_ctrl(key);
+            let action = self.input_mode_normal_on_key_press_ctrl(key);
             if action != AppKeyAction::Continue {
                 return Ok(action);
             }
@@ -221,30 +243,7 @@ impl App {
                 self.table_state.select(Some(target));
             }
             Enter => {
-                let selected = self.table_state.selected().unwrap_or(0);
-                if selected >= self.hosts.len() {
-                    return Ok(AppKeyAction::Ok);
-                }
-
-                let host: &ssh::Host = &self.hosts[selected];
-
-                restore_terminal(terminal).expect("Failed to restore terminal");
-
-                if let Some(template) = &self.config.command_template_on_session_start {
-                    host.run_command_template(template)?;
-                }
-
-                host.run_command_template(&self.config.command_template)?;
-
-                if let Some(template) = &self.config.command_template_on_session_end {
-                    host.run_command_template(template)?;
-                }
-
-                setup_terminal(terminal).expect("Failed to setup terminal");
-
-                if self.config.exit_after_ssh_session_ends {
-                    return Ok(AppKeyAction::Stop);
-                }
+                return self.connect_to_selected_host(terminal);
             }
             _ => return Ok(AppKeyAction::Continue),
         }
@@ -252,7 +251,7 @@ impl App {
         Ok(AppKeyAction::Ok)
     }
 
-    fn on_key_press_ctrl(&mut self, key: KeyEvent) -> AppKeyAction {
+    fn input_mode_normal_on_key_press_ctrl(&mut self, key: KeyEvent) -> AppKeyAction {
         #[allow(clippy::enum_glob_use)]
         use KeyCode::*;
 
@@ -268,6 +267,97 @@ impl App {
             }
             _ => AppKeyAction::Continue,
         }
+    }
+
+    fn input_mode_vim_on_key_press<B>(
+        &mut self,
+        terminal: &Rc<RefCell<Terminal<B>>>,
+        key: KeyEvent,
+    ) -> Result<AppKeyAction>
+    where
+        B: Backend + std::io::Write,
+    {
+        #[allow(clippy::enum_glob_use)]
+        use KeyCode::*;
+
+        match key.code {
+            Esc => Ok(AppKeyAction::Stop),
+            Char('j' | 'n') => {
+                self.next();
+                Ok(AppKeyAction::Ok)
+            }
+            Char('k' | 'p') => {
+                self.previous();
+                Ok(AppKeyAction::Ok)
+            }
+            Char('l') => self.connect_to_selected_host(terminal),
+            Char('i' | 'a') => {
+                self.config.input_mode = AppInputMode::VimInsert;
+                Ok(AppKeyAction::Ok)
+            }
+            Char('c') => {
+                // Clear search input
+                self.search.reset();
+                self.hosts.search(self.search.value());
+                Ok(AppKeyAction::Ok)
+            }
+            _ => Ok(AppKeyAction::Ok),
+        }
+    }
+
+    fn input_mode_vim_insert_on_key_press<B>(
+        &mut self,
+        _: &Rc<RefCell<Terminal<B>>>,
+        key: KeyEvent,
+    ) -> AppKeyAction
+    where
+        B: Backend + std::io::Write,
+    {
+        #[allow(clippy::enum_glob_use)]
+        use KeyCode::*;
+
+        match key.code {
+            Esc => {
+                self.config.input_mode = AppInputMode::Vim;
+                AppKeyAction::Ok
+            }
+            _ => AppKeyAction::Continue,
+        }
+    }
+
+    fn connect_to_selected_host<B>(
+        &self,
+        terminal: &Rc<RefCell<Terminal<B>>>,
+    ) -> Result<AppKeyAction>
+    where
+        B: Backend + std::io::Write,
+    {
+        let selected = self.table_state.selected().unwrap_or(0);
+        if selected >= self.hosts.len() {
+            return Ok(AppKeyAction::Ok);
+        }
+
+        let host: &ssh::Host = &self.hosts[selected];
+
+        restore_terminal(terminal).expect("Failed to restore terminal");
+
+        if let Some(template) = &self.config.command_template_on_session_start {
+            host.run_command_template(template)?;
+        }
+
+        host.run_command_template(&self.config.command_template)?;
+
+        if let Some(template) = &self.config.command_template_on_session_end {
+            host.run_command_template(template)?;
+        }
+
+        setup_terminal(terminal).expect("Failed to setup terminal");
+
+        if self.config.exit_after_ssh_session_ends {
+            return Ok(AppKeyAction::Stop);
+        }
+
+        Ok(AppKeyAction::Ok)
     }
 
     fn next(&mut self) {
@@ -434,22 +524,30 @@ fn ui(f: &mut Frame, app: &mut App) {
 
     render_footer(f, app, rects[2]);
 
-    let mut cursor_position = rects[0].as_position();
-    cursor_position.x += u16::try_from(app.search.cursor()).unwrap_or_default() + 4;
-    cursor_position.y += 1;
+    // If input mode is normal or Vim insert, set the cursor position
+    match app.config.input_mode {
+        AppInputMode::Normal | AppInputMode::VimInsert => {
+            let mut cursor_position = rects[0].as_position();
+            cursor_position.x += u16::try_from(app.search.cursor()).unwrap_or_default() + 4;
+            cursor_position.y += 1;
 
-    f.set_cursor_position(cursor_position);
+            f.set_cursor_position(cursor_position);
+        }
+        AppInputMode::Vim => {
+            // In Vim mode, we don't set the cursor position
+        }
+    }
 }
 
 fn render_searchbar(f: &mut Frame, app: &mut App, area: Rect) {
-    let info_footer = Paragraph::new(Line::from(app.search.value())).block(
+    let searchbar = Paragraph::new(Line::from(app.search.value())).block(
         Block::default()
             .borders(Borders::ALL)
             .border_style(Style::new().fg(app.palette.c400))
             .border_type(BorderType::Rounded)
             .padding(Padding::horizontal(3)),
     );
-    f.render_widget(info_footer, area);
+    f.render_widget(searchbar, area);
 }
 
 fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
@@ -509,7 +607,15 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn render_footer(f: &mut Frame, app: &mut App, area: Rect) {
-    let info_footer = Paragraph::new(Line::from(INFO_TEXT)).centered().block(
+    let text = match app.config.input_mode {
+        AppInputMode::Normal => "(Esc) quit | (↑) move up | (↓) move down | (enter) select",
+        AppInputMode::Vim => {
+            "(Esc) quit | (c) clear search | (i) insert mode | (j) next | (k) previous | (l) select"
+        }
+        AppInputMode::VimInsert => "(Esc) back to Vim mode",
+    };
+
+    let info_footer = Paragraph::new(Line::from(text)).centered().block(
         Block::default()
             .borders(Borders::ALL)
             .border_style(Style::new().fg(app.palette.c400))

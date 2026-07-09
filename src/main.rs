@@ -56,6 +56,10 @@ struct Args {
     /// Exit after ending the SSH session
     #[arg(short, long, default_value_t = false)]
     exit: bool,
+
+    /// Enable Vim mode
+    #[arg(short, long, default_value_t = false)]
+    vim: bool,
 }
 
 fn main() -> Result<()> {
@@ -71,6 +75,11 @@ fn main() -> Result<()> {
         command_template_on_session_start: args.on_session_start_template,
         command_template_on_session_end: args.on_session_end_template,
         exit_after_ssh_session_ends: args.exit,
+        input_mode: if args.vim {
+            ui::AppInputMode::Vim
+        } else {
+            ui::AppInputMode::Normal
+        },
     })?;
     app.start()?;
 
