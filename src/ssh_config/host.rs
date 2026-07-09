@@ -40,7 +40,7 @@ impl Host {
         }
     }
 
-    /// Does HostName expand differently for each pattern?
+    /// Does `HostName` expand differently for each pattern?
     fn hostname_depends_on_pattern(&self) -> bool {
         self.entries
             .get(&EntryType::Hostname)
