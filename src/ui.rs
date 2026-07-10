@@ -75,12 +75,16 @@ impl App {
             let parsed_hosts = match ssh::parse_config(path) {
                 Ok(hosts) => hosts,
                 Err(err) => {
-                    if path == "/etc/ssh/ssh_config" {
-                        if let ssh::ParseConfigError::Io(io_err) = &err {
-                            // Ignore missing system-wide SSH configuration file
-                            if io_err.kind() == std::io::ErrorKind::NotFound {
+                    if let ssh::ParseConfigError::Io(io_err) = &err {
+                        if io_err.kind() == std::io::ErrorKind::NotFound {
+                            if path == "/etc/ssh/ssh_config" {
+                                // Ignore missing system-wide SSH configuration file
                                 continue;
                             }
+
+                            anyhow::bail!(
+                                "SSH configuration file not found: {path}\nCreate it, or pass a different path with -c/--config."
+                            );
                         }
                     }
 
@@ -171,17 +175,6 @@ impl App {
                             AppKeyAction::Continue => {}
                         }
                     }
-
-                    self.search.handle_event(&ev);
-                    self.hosts.search(self.search.value());
-
-                    let selected = self.table_state.selected().unwrap_or(0);
-                    if selected >= self.hosts.len() {
-                        self.table_state.select(Some(match self.hosts.len() {
-                            0 => 0,
-                            _ => self.hosts.len() - 1,
-                        }));
-                    }
                 }
                 Event::Mouse(mouse) => {
                     let action = self.on_mouse_event(terminal, mouse)?;
@@ -193,6 +186,8 @@ impl App {
                 }
                 _ => {}
             }
+
+            self.handle_search_event(&ev);
         }
 
         Ok(())
@@ -207,30 +202,27 @@ impl App {
         B: Backend + std::io::Write,
         <B as Backend>::Error: Send + Sync + 'static,
     {
-        match mouse.kind {
-            MouseEventKind::Down(MouseButton::Left) => {
-                // Check if click is within table area
-                let table_area = self.table_area;
-                if mouse.column >= table_area.x
-                    && mouse.column < table_area.x + table_area.width
-                    && mouse.row >= table_area.y
-                    && mouse.row < table_area.y + table_area.height
-                {
-                    // Calculate which row was clicked
-                    let header_height = self.table_header_height;
-                    let top_border = self.table_top_border;
-                    let row_offset = table_area.y + top_border + header_height;
+        if let MouseEventKind::Down(MouseButton::Left) = mouse.kind {
+            // Check if click is within table area
+            let table_area = self.table_area;
+            if mouse.column >= table_area.x
+                && mouse.column < table_area.x + table_area.width
+                && mouse.row >= table_area.y
+                && mouse.row < table_area.y + table_area.height
+            {
+                // Calculate which row was clicked
+                let header_height = self.table_header_height;
+                let top_border = self.table_top_border;
+                let row_offset = table_area.y + top_border + header_height;
 
-                    if mouse.row >= row_offset {
-                        let scroll_offset = self.table_state.offset();
-                        let clicked_row = usize::from(mouse.row - row_offset) + scroll_offset;
-                        if clicked_row < self.hosts.len() {
-                            self.table_state.select(Some(clicked_row));
-                        }
+                if mouse.row >= row_offset {
+                    let scroll_offset = self.table_state.offset();
+                    let clicked_row = usize::from(mouse.row - row_offset) + scroll_offset;
+                    if clicked_row < self.hosts.len() {
+                        self.table_state.select(Some(clicked_row));
                     }
                 }
             }
-            _ => {}
         }
 
         Ok(AppKeyAction::Ok)
@@ -324,6 +316,31 @@ impl App {
                 AppKeyAction::Ok
             }
             _ => AppKeyAction::Continue,
+        }
+    }
+
+    /// Updates the search input from a terminal event, re-filters the host
+    /// list, and keeps the table selection valid.
+    ///
+    /// When the search text actually changes, the selection resets to the
+    /// top result instead of keeping its previous numeric index: the old
+    /// index could otherwise point at an unrelated host in the newly
+    /// filtered list, making an apparently-unmatched host look selected.
+    fn handle_search_event(&mut self, ev: &Event) {
+        let search_value_before = self.search.value().to_string();
+        self.search.handle_event(ev);
+
+        if self.search.value() == search_value_before {
+            let selected = self.table_state.selected().unwrap_or(0);
+            if selected >= self.hosts.len() {
+                self.table_state.select(Some(match self.hosts.len() {
+                    0 => 0,
+                    _ => self.hosts.len() - 1,
+                }));
+            }
+        } else {
+            self.hosts.search(self.search.value());
+            self.table_state.select(Some(0));
         }
     }
 
@@ -581,4 +598,80 @@ fn render_footer(f: &mut Frame, app: &mut App, area: Rect) {
             .border_type(BorderType::Rounded),
     );
     f.render_widget(info_footer, area);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_config() -> AppConfig {
+        AppConfig {
+            config_paths: vec![crate::test_support::testdata("search_selection.conf")
+                .to_string_lossy()
+                .into_owned()],
+            search_filter: None,
+            sort_by_name: false,
+            sort_by_levenshtein: false,
+            show_proxy_command: false,
+            command_template: r#"ssh "{{{name}}}""#.to_string(),
+            command_template_on_session_start: None,
+            command_template_on_session_end: None,
+            exit_after_ssh_session_ends: false,
+        }
+    }
+
+    fn type_char(app: &mut App, c: char) {
+        let ev = Event::Key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        app.handle_search_event(&ev);
+    }
+
+    /// Regression test for <https://github.com/quantumsheep/sshs/issues/120>:
+    /// a missing SSH config file used to surface a raw `Io(Os { .. })` debug
+    /// error; it should now explain what's missing and how to fix it.
+    #[test]
+    fn test_missing_config_file_gives_actionable_error() {
+        let mut config = test_config();
+        config.config_paths = vec!["/nonexistent/path/to/config".to_string()];
+
+        let message = match App::new(&config) {
+            Ok(_) => panic!("expected App::new to fail for a missing config file"),
+            Err(err) => err.to_string(),
+        };
+
+        assert!(
+            message.contains("/nonexistent/path/to/config"),
+            "error should mention the missing path: {message}"
+        );
+        assert!(
+            !message.contains("Os {"),
+            "error should not leak a raw Debug-formatted io::Error: {message}"
+        );
+    }
+
+    /// Regression test for <https://github.com/quantumsheep/sshs/issues/154>:
+    /// typing a search query used to keep the previously selected row index,
+    /// which could point at an unrelated host once the list was refiltered.
+    #[test]
+    fn test_search_resets_selection_to_top_match() {
+        let config = test_config();
+        let mut app = App::new(&config).unwrap();
+
+        // Sanity check: all 4 hosts are listed in file order before searching.
+        assert_eq!(app.hosts.len(), 4);
+
+        // Select the 2nd row ("other"), which won't match the search below.
+        app.next();
+        assert_eq!(app.table_state.selected(), Some(1));
+
+        for c in "match".chars() {
+            type_char(&mut app, c);
+        }
+
+        assert_eq!(app.hosts.len(), 3);
+        assert_eq!(app.hosts.iter().next().unwrap().name, "match1");
+
+        // The stale index (1) would previously stay selected, highlighting
+        // "match2" instead of resetting to the top match "match1".
+        assert_eq!(app.table_state.selected(), Some(0));
+    }
 }

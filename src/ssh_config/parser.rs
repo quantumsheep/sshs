@@ -165,10 +165,21 @@ fn parse_line(line: &str) -> Result<Entry, ParseError> {
         value = value.trim_start_matches('=').trim_start();
     }
 
-    Ok((
-        EntryType::from_str(key).unwrap_or(EntryType::Unknown(key.to_string())),
-        value.to_string(),
-    ))
+    let entry_type = EntryType::from_str(key).unwrap_or(EntryType::Unknown(key.to_string()));
+
+    // A value fully wrapped in double quotes (e.g. to preserve spaces) should
+    // have the quotes stripped, matching ssh_config's own behavior. Host
+    // patterns are excluded: they can list multiple quoted patterns and are
+    // unquoted individually by `parse_patterns`.
+    if entry_type != EntryType::Host
+        && value.len() >= 2
+        && value.starts_with('"')
+        && value.ends_with('"')
+    {
+        value = &value[1..value.len() - 1];
+    }
+
+    Ok((entry_type, value.to_string()))
 }
 
 fn parse_patterns(entry_value: &str) -> Vec<String> {
@@ -305,6 +316,20 @@ mod tests {
 
         assert_eq!(result.len(), 1);
         assert!(result[0].get_patterns().contains(&"example".to_string()));
+    }
+
+    #[test]
+    fn test_identity_agent_with_quoted_path_with_spaces() {
+        let parser = Parser::new();
+        let result = parser
+            .parse_file(testdata("identity_agent_with_spaces.conf"))
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(
+            result[0].get(&EntryType::IdentityAgent).unwrap(),
+            "~/Library/My Agent Dir/agent.sock"
+        );
     }
 
     #[test]
