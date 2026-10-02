@@ -1,7 +1,10 @@
 use anyhow::Result;
 use crossterm::{
     cursor::{Hide, Show},
-    event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+        KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+    },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -20,8 +23,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{searchable::Searchable, ssh};
 
-const INFO_TEXT: &str =
-    "(Esc) quit | (↑) move up | (↓) move down | (enter) select | (ctrl+r) reload";
+const INFO_TEXT: &str = "(Esc) quit | (↑/↓/click) navigate | (enter) select | (ctrl+r) reload";
 
 #[derive(Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -51,6 +53,9 @@ pub struct App {
     page_step: usize,
 
     palette: tailwind::Palette,
+    table_area: Rect,
+    table_header_height: u16,
+    table_top_border: u16,
 }
 
 #[derive(PartialEq)]
@@ -78,6 +83,9 @@ impl App {
             table_columns_constraints: Vec::new(),
             page_step: 21,
             palette: palette_by_name(&config.color)?,
+            table_area: Rect::default(),
+            table_header_height: 0,
+            table_top_border: 0,
 
             hosts: Searchable::new(config.sort_by_score, hosts, &search_input),
         };
@@ -118,21 +126,85 @@ impl App {
 
             let ev = event::read()?;
 
-            if let Event::Key(key) = ev {
-                if key.kind == KeyEventKind::Press {
-                    let action = self.on_key_press(terminal, key)?;
+            match ev {
+                Event::Key(key) => {
+                    if key.kind == KeyEventKind::Press {
+                        let action = self.on_key_press(terminal, key)?;
+                        match action {
+                            AppKeyAction::Ok => continue,
+                            AppKeyAction::Stop => break,
+                            AppKeyAction::Continue => {}
+                        }
+                    }
+                }
+                Event::Mouse(mouse) => {
+                    let action = self.on_mouse_event(terminal, mouse)?;
                     match action {
                         AppKeyAction::Ok => continue,
                         AppKeyAction::Stop => break,
                         AppKeyAction::Continue => {}
                     }
                 }
-
-                self.handle_search_event(&ev);
+                _ => {}
             }
+
+            self.handle_search_event(&ev);
         }
 
         Ok(())
+    }
+
+    /// Handles left-clicks on the host table to select a row.
+    ///
+    /// NOTE: click selection requires mouse capture (see `setup_terminal`).
+    /// In most terminals, hold `Shift` while dragging to select/copy text,
+    /// since the application now receives mouse events.
+    fn on_mouse_event<B>(
+        &mut self,
+        _terminal: &Rc<RefCell<Terminal<B>>>,
+        mouse: MouseEvent,
+    ) -> Result<AppKeyAction>
+    where
+        B: Backend + std::io::Write,
+        <B as Backend>::Error: Send + Sync + 'static,
+    {
+        if !matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
+            return Ok(AppKeyAction::Ok);
+        }
+
+        // Nothing to select or nowhere to click yet (first frame).
+        let table_area = self.table_area;
+        if self.hosts.is_empty() || table_area.width == 0 || table_area.height == 0 {
+            return Ok(AppKeyAction::Ok);
+        }
+
+        let right = table_area.x.saturating_add(table_area.width);
+        let bottom = table_area.y.saturating_add(table_area.height);
+        if mouse.column < table_area.x
+            || mouse.column >= right
+            || mouse.row < table_area.y
+            || mouse.row >= bottom
+        {
+            return Ok(AppKeyAction::Ok);
+        }
+
+        // First data row sits below the top border + header.
+        let row_offset = table_area
+            .y
+            .saturating_add(self.table_top_border)
+            .saturating_add(self.table_header_height);
+        if mouse.row < row_offset {
+            // Clicked on border/header, ignore.
+            return Ok(AppKeyAction::Ok);
+        }
+
+        let visible_index = usize::from(mouse.row.saturating_sub(row_offset));
+        let clicked_row = visible_index.saturating_add(self.table_state.offset());
+        if clicked_row < self.hosts.len() {
+            self.table_state.select(Some(clicked_row));
+        }
+
+        Ok(AppKeyAction::Ok)
     }
 
     fn on_key_press<B>(
@@ -456,7 +528,12 @@ where
 
     // setup terminal
     enable_raw_mode()?;
-    execute!(terminal.backend_mut(), Hide, EnterAlternateScreen)?;
+    execute!(
+        terminal.backend_mut(),
+        Hide,
+        EnterAlternateScreen,
+        EnableMouseCapture
+    )?;
 
     Ok(())
 }
@@ -471,7 +548,12 @@ where
 
     // restore terminal
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), Show, LeaveAlternateScreen)?;
+    execute!(
+        terminal.backend_mut(),
+        Show,
+        LeaveAlternateScreen,
+        DisableMouseCapture,
+    )?;
 
     Ok(())
 }
@@ -511,6 +593,8 @@ fn render_searchbar(f: &mut Frame, app: &mut App, area: Rect) {
 fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
     // The visible row count: the area minus the two border lines and the header.
     app.page_step = max(usize::from(area.height.saturating_sub(3)), 1);
+    // Store the table area for mouse click detection.
+    app.table_area = area;
 
     let header_style = Style::default().fg(tailwind::CYAN.c500);
     let selected_style = Style::default().add_modifier(Modifier::REVERSED);
@@ -520,13 +604,14 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         header_names.push("Proxy");
     }
 
+    let header_height = 1u16;
     let header = header_names
         .iter()
         .copied()
         .map(Cell::from)
         .collect::<Row>()
         .style(header_style)
-        .height(1);
+        .height(header_height);
 
     let rows = app.hosts.iter().map(|host| {
         let mut content = vec![
@@ -563,6 +648,10 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
                 .border_style(Style::new().fg(app.palette.c400))
                 .border_type(BorderType::Rounded),
         );
+
+    let top_border = u16::from(Borders::ALL.intersects(Borders::TOP));
+    app.table_header_height = header_height;
+    app.table_top_border = top_border;
 
     f.render_stateful_widget(t, area, &mut app.table_state);
 }
