@@ -2,7 +2,7 @@ use glob::glob;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use super::host::Entry;
@@ -40,13 +40,7 @@ impl Parser {
     where
         P: AsRef<Path>,
     {
-        // OpenSSH resolves relative Include paths against /etc/ssh for the
-        // system configuration file, and against ~/.ssh otherwise.
-        let include_base = if path.as_ref().starts_with("/etc/ssh") {
-            "/etc/ssh".to_string()
-        } else {
-            shellexpand::tilde("~/.ssh").to_string()
-        };
+        let include_base = include_base_for(path.as_ref());
 
         let mut reader = BufReader::new(File::open(path)?);
         self.parse_with_base(&mut reader, &include_base)
@@ -196,6 +190,72 @@ impl Parser {
     }
 }
 
+/// OpenSSH resolves relative Include paths against /etc/ssh for the
+/// system configuration file, and against ~/.ssh otherwise.
+fn include_base_for(path: &Path) -> String {
+    if path.starts_with("/etc/ssh") {
+        "/etc/ssh".to_string()
+    } else {
+        shellexpand::tilde("~/.ssh").to_string()
+    }
+}
+
+/// Returns the files pulled in by `Include` directives (outside `Match` blocks)
+/// of the configuration file at `path`, recursively, resolved the same way as
+/// [`Parser::parse_file`]. Unreadable files and invalid patterns are skipped.
+#[must_use]
+pub fn included_files<P>(path: P) -> Vec<PathBuf>
+where
+    P: AsRef<Path>,
+{
+    let include_base = include_base_for(path.as_ref());
+    let mut files = Vec::new();
+    collect_included_files(path.as_ref(), &include_base, 0, &mut files);
+    files
+}
+
+fn collect_included_files(path: &Path, include_base: &str, depth: usize, files: &mut Vec<PathBuf>) {
+    let Ok(file) = File::open(path) else {
+        return;
+    };
+
+    let mut in_match_block = false;
+    for line in BufReader::new(file).lines() {
+        let Ok(line) = line else {
+            return;
+        };
+        let line = strip_comment(&line).trim().to_string();
+        if line.is_empty() {
+            continue;
+        }
+
+        let Ok(entry) = parse_line(&line) else {
+            continue;
+        };
+
+        match entry.0 {
+            EntryType::Host => in_match_block = false,
+            EntryType::Match => in_match_block = true,
+            EntryType::Include if !in_match_block && depth < MAX_INCLUDE_DEPTH => {
+                let mut include_path = shellexpand::tilde(&entry.1).to_string();
+                if !include_path.starts_with('/') {
+                    include_path = format!("{include_base}/{include_path}");
+                }
+
+                let Ok(paths) = glob(&include_path) else {
+                    continue;
+                };
+
+                for included in paths.flatten() {
+                    collect_included_files(&included, include_base, depth + 1, files);
+                    files.push(included);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Strips a trailing comment, keeping any `#` inside double quotes,
 /// matching OpenSSH's tokenizer.
 fn strip_comment(line: &str) -> &str {
@@ -327,6 +387,38 @@ mod tests {
             .collect();
         assert!(all_patterns.contains(&"included".to_string()));
         assert!(all_patterns.contains(&"main".to_string()));
+    }
+
+    #[test]
+    fn test_included_files_follows_nested_includes() {
+        let dir = std::env::temp_dir().join("sshs_test_included_files");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("config.d")).unwrap();
+
+        let work = dir.join("config.d/work.conf");
+        let nested = dir.join("nested.conf");
+        let in_match = dir.join("in_match.conf");
+        std::fs::write(&work, format!("Include {}\nHost demo\n", nested.display())).unwrap();
+        std::fs::write(&nested, "Host nested\n").unwrap();
+        std::fs::write(&in_match, "Host matched\n").unwrap();
+
+        let main = dir.join("config");
+        std::fs::write(
+            &main,
+            format!(
+                "Include {}/config.d/*.conf\nMatch tagged work\n  Include {}\n",
+                dir.display(),
+                in_match.display()
+            ),
+        )
+        .unwrap();
+
+        let files = included_files(&main);
+        assert!(files.contains(&work));
+        assert!(files.contains(&nested));
+        assert!(!files.contains(&in_match));
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
