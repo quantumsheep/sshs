@@ -145,10 +145,10 @@ Host windows-server
 
 ```bash
 sshs --config ~/.config/rdp-hosts \
-  --template 'xfreerdp3 /v:{{{destination}}}{{#if port}}:{{{port}}}{{/if}}{{#if user}} "/u:{{{user}}}"{{/if}} /dynamic-resolution +clipboard'
+  --template 'xfreerdp /v:{{{destination}}}{{#if port}}:{{{port}}}{{/if}}{{#if user}} "/u:{{{user}}}"{{/if}} /dynamic-resolution +clipboard'
 ```
 
-FreeRDP asks for the password when connecting. On Wayland, `sdl-freerdp3` takes the same options.
+FreeRDP asks for the password when connecting. Some distributions (Arch Linux, Debian, Ubuntu) suffix the FreeRDP 3 binaries with `3`: use `xfreerdp3` there. On Wayland, `sdl-freerdp` (or `sdl-freerdp3`) takes the same options.
 
 ## Troubleshooting
 
