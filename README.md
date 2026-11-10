@@ -109,14 +109,14 @@ The binary will be located at `./target/release/sshs` once the build is complete
 
 ## Custom commands with templates
 
-By default, selecting a host runs `ssh "{{{name}}}"`. The `--template` option replaces that command with your own [Handlebars](https://handlebarsjs.com/guide/) template, so sshs can launch any tool from the same host list.
+By default, selecting a host runs `ssh "{{{name}}}"`. The `--template` / `-t` option replaces that command with your own [Handlebars](https://handlebarsjs.com/guide/) template, so sshs can launch any tool from the same host list.
 
 These variables are available:
 
 | Variable        | Value                                                    |
 | --------------- | -------------------------------------------------------- |
 | `name`          | First pattern of the `Host` line                         |
-| `aliases`       | Other patterns of the `Host` line, joined with `, `      |
+| `aliases`       | Other identical patterns, joined with `, `               |
 | `destination`   | `HostName`, or the host name when `HostName` is not set  |
 | `user`          | `User`, empty when not set                               |
 | `port`          | `Port`, empty when not set                               |
@@ -128,11 +128,15 @@ Use triple braces (`{{{name}}}`) so that values are not HTML-escaped, and `{{#if
 
 ### Examples
 
-Mount a host with [SSHFS](https://github.com/libfuse/sshfs):
+Browse a host's files with [SSHFS](https://github.com/libfuse/sshfs): mount it when the session starts, open a file manager on the mount point, and unmount it when you quit the file manager. `sshfs` goes to the background once the filesystem is mounted, so it belongs in the start template, not in the main one:
 
 ```bash
-sshs --template 'sshfs "{{{name}}}":/path/to/remote /path/to/local'
+sshs --on-session-start-template 'sshfs "{{{name}}}":/path/to/remote /path/to/local' \
+  --template 'ranger /path/to/local' \
+  --on-session-end-template 'fusermount3 -u /path/to/local'
 ```
+
+Use `umount /path/to/local` instead of `fusermount3 -u` on macOS.
 
 Open a Remote Desktop (RDP) session with [FreeRDP](https://www.freerdp.com/), from a separate file of Windows hosts. sshs only reads the file to build the list, so it can use any extension and stay out of `~/.ssh/config`:
 
